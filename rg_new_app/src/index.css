@@ -1,0 +1,72 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+@keyframes chaoticSpin {
+  0% { transform: rotate(0deg); border-color: #FF6B6B; }
+  50% { transform: rotate(180deg); border-color: #FF00A0; }
+  100% { transform: rotate(360deg); border-color: #FF6B6B; }
+}
+
+@keyframes wobble {
+  0% { transform: rotate(0deg); }
+  50% { transform: rotate(5deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.chaotic-spinner {
+  animation: chaoticSpin 1s linear infinite;
+}
+
+a {
+  text-decoration: none;
+}
+
+button {
+  border: none;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+input::placeholder {
+  color: #A0A0A0;
+}
+
+.light {
+  --background: #FFFACD;
+  --text: #FF4500;
+}
+
+.dark {
+  --background: #333;
+  --text: #FF00A0;
+}
+
+body {
+  background: var(--background);
+  color: var(--text);
+}

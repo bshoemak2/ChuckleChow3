@@ -1,0 +1,21 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.db
+*.sqlite3
+
+# Node.js
+rg_new_app/node_modules/
+rg_new_app/dist/
+rg_new_app/.env
+
+# Logs
+recipe_generator.log
+
+# Build output
+build/
+web-build/

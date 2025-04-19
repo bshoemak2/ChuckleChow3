@@ -1,0 +1,669 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  Button,
+  ActivityIndicator,
+  Platform,
+  Share,
+  Linking,
+  Image,
+} from 'react-native';
+import Animated, { Easing, FadeIn, FadeInUp } from 'react-native-reanimated';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Link } from 'expo-router';
+import { FavoritesList } from './FavoritesList';
+import { styles } from './_styles';
+import * as Clipboard from 'expo-clipboard';
+
+// Web fallbacks
+const ScrollView = Platform.OS === 'web' ? ({ children, style, contentContainerStyle }) => (
+  <div style={{ overflowY: 'auto', ...style }}>
+    {React.Children.map(children, (child) => (
+      <div style={contentContainerStyle}>{child}</div>
+    ))}
+  </div>
+) : require('react-native').ScrollView;
+
+const Picker = Platform.OS === 'web' ? ({ selectedValue, onValueChange, children, style }) => (
+  <select
+    value={selectedValue}
+    onChange={(e) => onValueChange(e.target.value)}
+    style={{ padding: 8, borderRadius: 4, ...style }}
+  >
+    {children}
+  </select>
+) : require('react-native').Picker;
+
+const TouchableOpacity = Platform.OS === 'web' ? ({ children, onPress, style }) => (
+  <button onClick={onPress} style={{ border: 'none', background: 'none', cursor: 'pointer', ...style }}>
+    {children}
+  </button>
+) : require('react-native').TouchableOpacity;
+
+const WebModal = Platform.OS === 'web' ? ({ visible, children }) => (
+  visible ? (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.5)',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center'
+    }}>
+      {children}
+    </div>
+  ) : null
+) : require('react-native').Modal;
+
+const AnimatedView = Platform.OS === 'web' ? View : Animated.View;
+
+// Interfaces for TypeScript
+interface IngredientLink {
+  name: string;
+  url: string;
+}
+
+interface Nutrition {
+  calories: number;
+  chaos_factor?: number;
+}
+
+interface Recipe {
+  title: string;
+  ingredients: string[];
+  steps: string[];
+  nutrition: Nutrition;
+  equipment?: string[];
+  shareText?: string;
+  ingredients_with_links?: IngredientLink[];
+  add_all_to_cart?: string;
+  chaos_gear?: string;
+}
+
+// Error Boundary
+class ErrorBoundary extends React.Component {
+  state = { hasError: false, error: null };
+
+  static getDerivedStateFromError(error: any) {
+    console.error('ERROR_BOUNDARY_2025_04_21', error);
+    return { hasError: true, error };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+          <Text style={{ fontSize: 24, color: '#f00' }}>
+            Chaos broke loose! 🐷 {this.state.error?.message}
+          </Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+console.log('INDEX_TSX_TOP_2025_04_21', new Date().toISOString());
+
+export default function HomeScreen() {
+  console.log('INDEX_TSX_HOMESCREEN_2025_04_21', new Date().toISOString());
+
+  const [meat, setMeat] = useState('');
+  const [vegetable, setVegetable] = useState('');
+  const [fruit, setFruit] = useState('');
+  const [seafood, setSeafood] = useState('');
+  const [dairy, setDairy] = useState('');
+  const [carb, setCarb] = useState('');
+  const [devilWater, setDevilWater] = useState('');
+  const [style, setStyle] = useState('');
+  const [category, setCategory] = useState('');
+  const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [favorites, setFavorites] = useState<Recipe[]>([]);
+  const [lastRandom, setLastRandom] = useState(false);
+  const [showFavorites, setShowFavorites] = useState(false);
+  const [selectedFavorite, setSelectedFavorite] = useState<Recipe | null>(null);
+  const [search, setSearch] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showCartModal, setShowCartModal] = useState(false);
+
+  const API_URL = 'http://localhost:5000'; // Update to your deployed URL for production
+
+  const INGREDIENT_CATEGORIES = {
+    meat: [
+      { name: 'ground beef', emoji: '🍔' },
+      { name: 'chicken', emoji: '🍗' },
+      { name: 'pork', emoji: '🥓' },
+      { name: 'lamb', emoji: '🐑' },
+      { name: 'pichana', emoji: '🥩' },
+      { name: 'churrasco', emoji: '🍖' },
+      { name: 'ribeye steaks', emoji: '🍽️' },
+      { name: 'squirrel', emoji: '🐿️' },
+      { name: 'rabbit', emoji: '🐰' },
+      { name: 'quail', emoji: '🐦' },
+      { name: 'woodpecker', emoji: '🦜' },
+    ],
+    vegetables: [
+      { name: 'carrot', emoji: '🥕' },
+      { name: 'broccoli', emoji: '🥦' },
+      { name: 'onion', emoji: '🧅' },
+      { name: 'potato', emoji: '🥔' },
+      { name: 'tomato', emoji: '🍅' },
+      { name: 'green beans', emoji: '🌱' },
+      { name: 'okra', emoji: '🌿' },
+      { name: 'collards', emoji: '🥬' },
+    ],
+    fruits: [
+      { name: 'apple', emoji: '🍎' },
+      { name: 'banana', emoji: '🍌' },
+      { name: 'lemon', emoji: '🍋' },
+      { name: 'orange', emoji: '🍊' },
+      { name: 'mango', emoji: '🥭' },
+      { name: 'avocado', emoji: '🥑' },
+      { name: 'starfruit', emoji: '✨' },
+      { name: 'dragon fruit', emoji: '🐉' },
+      { name: 'carambola', emoji: '🌟' },
+    ],
+    seafood: [
+      { name: 'salmon', emoji: '🐟' },
+      { name: 'shrimp', emoji: '🦐' },
+      { name: 'cod', emoji: '🐠' },
+      { name: 'tuna', emoji: '🐡' },
+      { name: 'yellowtail snapper', emoji: '🎣' },
+      { name: 'grouper', emoji: '🪸' },
+      { name: 'red snapper', emoji: '🌊' },
+      { name: 'oysters', emoji: '🦪' },
+      { name: 'lobster', emoji: '🦞' },
+      { name: 'conch', emoji: '🐚' },
+      { name: 'lionfish', emoji: '🦈' },
+      { name: 'catfish', emoji: '🐺' },
+      { name: 'bass', emoji: '🎸' },
+      { name: 'crappie', emoji: '🐳' },
+    ],
+    dairy: [
+      { name: 'cheese', emoji: '🧀' },
+      { name: 'milk', emoji: '🥛' },
+      { name: 'butter', emoji: '🧈' },
+      { name: 'yogurt', emoji: '🍶' },
+      { name: 'eggs', emoji: '🥚' },
+    ],
+    carbs: [
+      { name: 'bread', emoji: '🍞' },
+      { name: 'pasta', emoji: '🍝' },
+      { name: 'rice', emoji: '🍚' },
+      { name: 'tortilla', emoji: '🌮' },
+    ],
+    devilWater: [
+      { name: 'beer', emoji: '🍺' },
+      { name: 'moonshine', emoji: '🥃' },
+      { name: 'whiskey', emoji: '🥃' },
+      { name: 'vodka', emoji: '🍸' },
+      { name: 'tequila', emoji: '🌵' },
+    ],
+  };
+
+  const AFFILIATE_LINKS = [
+    {
+      title: '🍔 Bubba’s Burger Smasher 🍔',
+      url: 'https://amzn.to/4jwsA8w',
+      image: 'https://m.media-amazon.com/images/I/61msHBPisBL._AC_SX425_.jpg',
+    },
+    {
+      title: '🥃 Hillbilly Moonshine Maker 🥃',
+      url: 'https://amzn.to/4lwVxmw',
+      image: 'https://m.media-amazon.com/images/I/418WMdO5DQS._AC_US100_.jpg',
+    },
+    {
+      title: '🔪 Granny’s Hog-Slicin’ Knife 🔪',
+      url: 'https://amzn.to/4lp4j5M',
+      image: 'https://m.media-amazon.com/images/I/61p28HGfcGL._AC_SY450_.jpg',
+    },
+    {
+      title: '🍺 Redneck Beer Pong Kit 🍺',
+      url: 'https://amzn.to/42re7n7',
+      image: 'https://m.media-amazon.com/images/I/81ZrDViTBTL._AC_SY355_.jpg',
+    },
+    {
+      title: '🐔 Cletus’s Chicken Tickler Whisk 🐔',
+      url: 'https://amzn.to/4j9uqMG',
+      image: 'https://m.media-amazon.com/images/I/41ccOMyTYLL._AC_SX425_.jpg',
+    },
+    {
+      title: '🥚 Possum’s Egg-Splodin’ Separator 🥚',
+      url: 'https://amzn.to/3EiOrkG',
+      image: 'https://m.media-amazon.com/images/I/61DHEfEI1TL._AC_SX425_.jpg',
+    },
+    {
+      title: '🥓 Hog Holler Bacon Gripper Tongs 🥓',
+      url: 'https://amzn.to/4jhJ8kA',
+      image: 'https://m.media-amazon.com/images/I/71jIBCjXMPL._AC_SX425_.jpg',
+    },
+    {
+      title: '🌽 Moonshine Mason Jar Measuring Cups 🌽',
+      url: 'https://amzn.to/44tvYwi',
+      image: 'https://m.media-amazon.com/images/I/51QJ8JIQCaL._AC_SY606_.jpg',
+    },
+    {
+      title: '🔥 Gator’s Grill Scorchin’ Mitt 🔥',
+      url: 'https://amzn.to/4lsnUCh',
+      image: 'https://m.media-amazon.com/images/I/81Q8RGATIHL._AC_SX425_.jpg',
+    },
+    {
+      title: '🍔 Squirrel’s Nutty Pancake Flipper 🍔',
+      url: 'https://amzn.to/3RJ4U4K',
+      image: 'https://m.media-amazon.com/images/I/71AicV-umtL._AC_SX425_.jpg',
+    },
+    {
+      title: '🐷 Caja China Pig Roasting Box 🐷',
+      url: 'https://amzn.to/4cz2GP4',
+      image: 'https://m.media-amazon.com/images/I/61eD3oq2XXL._AC_SX425_.jpg',
+    },
+    {
+      title: '🍳 Hillbilly Cast Iron Skillet 🍳',
+      url: 'https://amzn.to/42H0vp9',
+      image: 'https://m.media-amazon.com/images/I/81lU5G0EU-L._AC_SX425_.jpg',
+    },
+  ];
+
+  useEffect(() => {
+    const loadFavorites = async () => {
+      try {
+        const saved = await AsyncStorage.getItem('favorites');
+        if (saved) {
+          const parsedFavorites = JSON.parse(saved);
+          const cleanedFavorites = parsedFavorites.map((fav: Recipe) => ({
+            title: fav.title || 'Unknown Recipe',
+            ingredients: fav.ingredients || [],
+            steps: fav.steps || [],
+            nutrition: fav.nutrition || { calories: 0 },
+            equipment: fav.equipment || [],
+            shareText: fav.shareText || '',
+            ingredients_with_links: fav.ingredients_with_links || [],
+            add_all_to_cart: fav.add_all_to_cart || '',
+            chaos_gear: fav.chaos_gear || ''
+          }));
+          setFavorites(cleanedFavorites);
+          await AsyncStorage.setItem('favorites', JSON.stringify(cleanedFavorites));
+        }
+      } catch (error) {
+        console.error('Error loading favorites:', error);
+      }
+    };
+    loadFavorites();
+  }, []);
+
+  const fetchRecipe = async (isRandom = false) => {
+    const selectedIngredients = [meat, vegetable, fruit, seafood, dairy, carb, devilWater].filter(Boolean);
+    if (!selectedIngredients.length && !isRandom) {
+      setRecipe({
+        title: "Error 🤦‍♂️",
+        ingredients: [],
+        steps: ["Pick somethin’, ya lazy bum! 😛"],
+        nutrition: { calories: 0 },
+        equipment: [],
+        shareText: ''
+      });
+      setError(null);
+      setIsLoading(false);
+      setLastRandom(isRandom);
+      return;
+    }
+    setIsLoading(true);
+    setRecipe(null);
+    setError(null);
+    setLastRandom(isRandom);
+    const url = `${API_URL}/generate_recipe`;
+    const requestBody = JSON.stringify({
+      ingredients: selectedIngredients,
+      preferences: { style, category, isRandom },
+    });
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: requestBody,
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `API failed: ${response.status}`);
+      }
+      const data: Recipe = await response.json();
+      console.log('Fetched recipe:', data);
+      setRecipe(data);
+    } catch (error: any) {
+      console.error('Fetch error:', error);
+      setError(error.message);
+      setRecipe({
+        title: "Error 🤦‍♂️",
+        ingredients: [],
+        steps: [`Cookin’ crashed: ${error.message} 🤡`],
+        nutrition: { calories: 0 },
+        equipment: [],
+        shareText: ''
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const saveFavorite = async () => {
+    if (recipe && !favorites.some((fav) => fav.title === recipe.title)) {
+      const newFavorites = [...favorites, recipe];
+      setFavorites(newFavorites);
+      try {
+        await AsyncStorage.setItem('favorites', JSON.stringify(newFavorites));
+      } catch (error) {
+        console.error('Error saving favorite:', error);
+      }
+    }
+  };
+
+  const shareRecipe = async (platform = 'default') => {
+    const currentRecipe = selectedFavorite || recipe;
+    if (!currentRecipe) return;
+    const shareText = currentRecipe.shareText || `${currentRecipe.title}\n${currentRecipe.ingredients.join('\n')}\n${currentRecipe.steps.join('\n')}`;
+    const url = 'https://chuckle-and-chow.onrender.com/';
+    const fullMessage = `Get a load of this hogwash: ${shareText}\nCheck out my app: ${url} 🤠`;
+    try {
+      if (platform === 'default' || platform === 'more') {
+        await Share.share({ message: fullMessage });
+      } else if (platform === 'twitter') {
+        const tweetUrl = `https://x.com/intent/post?text=${encodeURIComponent(fullMessage)}`;
+        await Linking.openURL(tweetUrl);
+      } else if (platform === 'facebook') {
+        const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(shareText)}`;
+        await Linking.openURL(fbUrl);
+      }
+    } catch (error) {
+      console.error('Share error:', error);
+      setError('Failed to share');
+    }
+  };
+
+  const copyToClipboard = async () => {
+    const currentRecipe = selectedFavorite || recipe;
+    if (!currentRecipe) return;
+    const textToCopy = `${currentRecipe.title}\n\nIngredients:\n${currentRecipe.ingredients.join('\n')}\n\nSteps:\n${currentRecipe.steps.join('\n')}\n\nChaos Gear: ${currentRecipe.chaos_gear || 'None'}`;
+    try {
+      await Clipboard.setStringAsync(textToCopy);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error('Clipboard error:', error);
+      setError('Clipboard failed');
+    }
+  };
+
+  const clearInput = () => {
+    setMeat('');
+    setVegetable('');
+    setFruit('');
+    setSeafood('');
+    setDairy('');
+    setCarb('');
+    setDevilWater('');
+    setStyle('');
+    setCategory('');
+    setRecipe(null);
+    setError(null);
+    setLastRandom(false);
+    setSelectedFavorite(null);
+    setSearch('');
+  };
+
+  const fetchRandomRecipe = () => fetchRecipe(true);
+
+  const toggleFavorites = () => {
+    setShowFavorites(!showFavorites);
+    setSelectedFavorite(null);
+    setSearch('');
+  };
+
+  const handleAddAllToCart = (cartUrl?: string) => {
+    if (cartUrl) {
+      Linking.openURL(cartUrl).catch((err) => console.error('Failed to open cart URL:', err));
+    } else {
+      setShowCartModal(true);
+    }
+  };
+
+  const AffiliateSection = () => (
+    <View style={styles.affiliateSection}>
+      <Text style={styles.affiliateHeader}>💰 Git Yer Loot Here, Y’all! 💸</Text>
+      {AFFILIATE_LINKS.map((link) => (
+        <TouchableOpacity key={link.title} style={styles.affiliateButton} onPress={() => Linking.openURL(link.url)}>
+          <Image
+            source={{ uri: link.image }}
+            style={styles.affiliateImage}
+            onError={(e) => console.error(`Image failed: ${link.image}`, e.nativeEvent.error)}
+            defaultSource={require('../assets/fallback.png')}
+          />
+          <Text style={styles.affiliateText}>{link.title}</Text>
+        </TouchableOpacity>
+      ))}
+      <Text style={styles.affiliateDisclaimer}>As an Amazon Associate, I earn from qualifyin’ purchases, yeehaw!</Text>
+    </View>
+  );
+
+  const RecipeCard = ({ recipe, onShare, onSave, onBack }: { recipe: Recipe; onShare: (platform: string) => void; onSave?: () => void; onBack?: () => void }) => {
+    console.log('Rendering RecipeCard:', recipe);
+    return (
+      <View style={styles.recipeCard}>
+        <Text style={styles.recipeTitle}>{recipe.title || 'No Title'}</Text>
+        <Text style={styles.recipeSection}>Ingredients:</Text>
+        {(recipe.ingredients || []).map((ing, i) => {
+          const link = recipe.ingredients_with_links?.find(link => link.name === ing);
+          return (
+            <View key={i} style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={styles.recipeItem}>- {ing}</Text>
+              {link && (
+                <TouchableOpacity onPress={() => Linking.openURL(link.url)}>
+                  <Text style={[styles.recipeItem, { color: '#FF9900', marginLeft: 10 }]}>🛒 Buy</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          );
+        })}
+        <Text style={styles.recipeSection}>Steps:</Text>
+        {(recipe.steps || []).map((step, i) => (
+          <Text key={i} style={styles.recipeItem}>{i + 1}. {step}</Text>
+        ))}
+        <Text style={styles.recipeSection}>Nutrition:</Text>
+        <Text style={styles.recipeItem}>
+          Calories: {recipe.nutrition?.calories || 0} (Chaos: {recipe.nutrition?.chaos_factor || 0}/10)
+        </Text>
+        <Text style={styles.recipeSection}>Gear:</Text>
+        <Text style={styles.recipeItem}>
+          {(recipe.equipment || []).join(', ') || 'None'} {recipe.chaos_gear ? `, Chaos Gear: ${recipe.chaos_gear} 🪓` : ''}
+        </Text>
+        <View style={styles.recipeActions}>
+          <TouchableOpacity
+            style={[styles.copyButton, { backgroundColor: copied ? '#4ECDC4' : '#FF69B4', borderColor: '#FFD700' }]}
+            onPress={copyToClipboard}
+          >
+            <Text style={styles.copyButtonText}>{copied ? 'Snagged It! 🎯' : 'Copy to Clipboard 📋'}</Text>
+          </TouchableOpacity>
+          <Button title="🐦 Share to X" onPress={() => onShare('twitter')} color="#1DA1F2" />
+          <Button title="📘 Share to Facebook" onPress={() => onShare('facebook')} color="#4267B2" />
+          <Button title="📣 Share to Pals" onPress={() => onShare('default')} color="#FF6B6B" />
+          <TouchableOpacity
+            style={[styles.copyButton, { backgroundColor: '#FF9900', borderColor: '#FFD700', marginVertical: 5 }]}
+            onPress={() => handleAddAllToCart(recipe.add_all_to_cart)}
+          >
+            <Text style={styles.copyButtonText}>🛒 Add All to Amazon Cart</Text>
+          </TouchableOpacity>
+          {onSave && <Button title="💾 Hoard This Gem" onPress={onSave} color="#4ECDC4" />}
+          {onBack && <Button title="⬅️ Back to the Heap" onPress={onBack} color="#FFD93D" />}
+        </View>
+      </View>
+    );
+  };
+
+  const PickerSection = ({ label, category, value, onValueChange, bgColor, borderColor }: { label: string; category: string; value: string; onValueChange: (value: string) => void; bgColor: string; borderColor: string }) => (
+    <View style={styles.inputSection}>
+      <Text style={[styles.inputLabel, { backgroundColor: bgColor, color: '#FFD700' }]}>{label}</Text>
+      <Picker selectedValue={value} onValueChange={onValueChange} style={[styles.picker, { backgroundColor: bgColor, borderColor }]}>
+        <Picker.Item label="None" value="" color="#FFF" />
+        {INGREDIENT_CATEGORIES[category as keyof typeof INGREDIENT_CATEGORIES].map((item) => (
+          <Picker.Item key={item.name} label={`${item.name} ${item.emoji}`} value={item.name} color="#FFF" />
+        ))}
+      </Picker>
+    </View>
+  );
+
+  console.log('Rendering HomeScreen, recipe:', recipe);
+
+  return (
+    <ErrorBoundary>
+      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
+        <AnimatedView entering={Platform.OS !== 'web' ? FadeIn.duration(800).easing(Easing.out(Easing.exp)) : undefined} style={styles.container}>
+          <Text style={styles.header}>🤪 Chuckle & Chow: Recipe Rumble 🍔💥</Text>
+          <Text style={styles.subheader}>Cookin’ Up Chaos for Rednecks, Rebels, and Rascals! 🎸🔥</Text>
+          <View style={styles.trustSection}>
+            <Text style={styles.trustText}>🌶️ Hotter than a jalapeño’s armpit</Text>
+            <Text style={styles.trustText}>🍺 Best with a cold one, yeehaw!</Text>
+            <Text style={styles.trustText}>🐷 Crazier than a hog on a hot tin roof</Text>
+          </View>
+          <PickerSection label="🥩 Meaty Madness 🍖" category="meat" value={meat} onValueChange={setMeat} bgColor="#FF6347" borderColor="#FFD700" />
+          <PickerSection
+            label="🥕 Veggie Voodoo 🥔"
+            category="vegetables"
+            value={vegetable}
+            onValueChange={setVegetable}
+            bgColor="#228B22"
+            borderColor="#ADFF2F"
+          />
+          <PickerSection
+            label="🍎 Fruity Frenzy 🍋"
+            category="fruits"
+            value={fruit}
+            onValueChange={setFruit}
+            bgColor="#FF1493"
+            borderColor="#FFB6C1"
+          />
+          <PickerSection
+            label="🦐 Sea Critter Chaos 🐟"
+            category="seafood"
+            value={seafood}
+            onValueChange={setSeafood}
+            bgColor="#20B2AA"
+            borderColor="#00FFFF"
+          />
+          <PickerSection label="🧀 Dairy Delirium 🧀" category="dairy" value={dairy} onValueChange={setDairy} bgColor="#FFA500" borderColor="#FFD700" />
+          <PickerSection label="🍞 Carb Craze 🍝" category="carbs" value={carb} onValueChange={setCarb} bgColor="#8B4513" borderColor="#FFD700" />
+          <PickerSection
+            label="🥃 Devil Water Disaster 🍺"
+            category="devilWater"
+            value={devilWater}
+            onValueChange={setDevilWater}
+            bgColor="#800080"
+            borderColor="#FFD700"
+          />
+          {isLoading && (
+            <View style={styles.spinnerContainer}>
+              <ActivityIndicator size="large" color="#FF6B6B" />
+              <Text style={[styles.spinnerText, { color: '#FF1493', fontWeight: 'bold' }]}>
+                🔥 Whippin’ up somethin’ nuttier than squirrel turds... 🐿️
+              </Text>
+              <View style={styles.recipeCard}>
+                <View style={[styles.skeletonBox, { height: 30, width: '80%', marginBottom: 10 }]} />
+                <View style={[styles.skeletonBox, { height: 20, width: '60%', marginBottom: 5 }]} />
+                <View style={[styles.skeletonBox, { height: 20, width: '70%', marginBottom: 5 }]} />
+                <View style={[styles.skeletonBox, { height: 20, width: '50%', marginBottom: 5 }]} />
+              </View>
+            </View>
+          )}
+          {error && (
+            <AnimatedView entering={Platform.OS !== 'web' ? FadeIn.duration(800) : undefined} style={styles.errorContainer}>
+              <Text style={[styles.error, { color: '#FF1493', fontSize: 20 }]}>💥 Dang it! {error} 🤦‍♂️</Text>
+              <Button title="🧹 Clear the Mess" onPress={() => setError(null)} color="#4ECDC4" />
+              <Button title="🐴 Retry, Ya Mule!" onPress={() => fetchRecipe(lastRandom)} color="#FF3D00" />
+            </AnimatedView>
+          )}
+          <AnimatedView entering={Platform.OS !== 'web' ? FadeInUp.delay(600).duration(600) : undefined} style={styles.buttonRow}>
+            <Button title="🍳 Cook Me a Hoot! 🎉" onPress={() => fetchRecipe(false)} disabled={isLoading} color="#FF4500" />
+            <Button title="🎲 Random Ruckus Recipe 🌩️" onPress={fetchRandomRecipe} disabled={isLoading} color="#FF00A0" />
+            <Button title="🧹 Wipe the Slate, Bubba 🐴" onPress={clearInput} color="#4ECDC4" />
+            <Button title={showFavorites ? '🙈 Hide My Stash' : '💰 Show My Stash'} onPress={toggleFavorites} color="#4ECDC4" />
+          </AnimatedView>
+          {recipe && recipe.title !== 'Error' && !selectedFavorite && (
+            <RecipeCard recipe={recipe} onShare={shareRecipe} onSave={saveFavorite} />
+          )}
+          {recipe && recipe.title === 'Error' && (
+            <AnimatedView entering={Platform.OS !== 'web' ? FadeIn.duration(800) : undefined} style={styles.errorContainer}>
+              <Text style={[styles.error, { color: '#FF1493', fontSize: 20 }]}>💥 Dang it! {recipe.steps[0]} 🤦‍♂️</Text>
+              <Button title="🐴 Retry, Ya Mule!" onPress={() => fetchRecipe(lastRandom)} color="#FF3D00" />
+              <Button title="🧹 Clear the Mess" onPress={() => setRecipe(null)} color="#4ECDC4" />
+            </AnimatedView>
+          )}
+          {showFavorites && favorites.length > 0 && (
+            <FavoritesList
+              favorites={favorites}
+              setFavorites={setFavorites}
+              search={search}
+              setSearch={setSearch}
+              setSelectedFavorite={setSelectedFavorite}
+            />
+          )}
+          {selectedFavorite && (
+            <RecipeCard recipe={selectedFavorite} onShare={shareRecipe} onBack={() => setSelectedFavorite(null)} />
+          )}
+          <WebModal
+            visible={showCartModal}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={() => setShowCartModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Image
+                  source={require('../assets/fallback.png')}
+                  style={styles.modalImage}
+                />
+                <Text style={styles.modalText}>Coming Soon</Text>
+                <Text style={styles.modalSubText}>This feature is cookin’ and ain’t ready yet!</Text>
+                <TouchableOpacity
+                  style={styles.modalButton}
+                  onPress={() => setShowCartModal(false)}
+                >
+                  <Text style={styles.modalButtonText}>OK</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </WebModal>
+          <AffiliateSection />
+          <View style={styles.footer}>
+            <Image
+              source={require('../assets/gt.png')}
+              style={styles.footerLogo}
+            />
+            <Text style={styles.footerCopyright}>© 2025 Chuckle & Chow 🌟</Text>
+            <View style={styles.footerLinks}>
+              <Link href="/privacy-policy" style={styles.footerPrivacyLink}>
+                <Text style={styles.footerPrivacyText}>Privacy Policy 🕵️‍♂️</Text>
+              </Link>
+              <Text style={styles.footerContactText}>
+                Got issues? Holler at{' '}
+                <Text
+                  style={styles.footerEmailLink}
+                  onPress={() => Linking.openURL('mailto:bshoemak@mac.com')}
+                >
+                  bshoemak@mac.com 📧
+                </Text>
+              </Text>
+            </View>
+            <Image
+              source={require('../assets/fallback.png')}
+              style={styles.footerFallback}
+            />
+          </View>
+        </AnimatedView>
+      </ScrollView>
+    </ErrorBoundary>
+  );
+}
