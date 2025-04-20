@@ -1,4 +1,3 @@
-[Contents identical to the corrected app.py from April 21, 2025, 08:13, included for completeness]
 import logging
 import os
 from flask import Flask, request, jsonify, send_from_directory
