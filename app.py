@@ -273,10 +273,8 @@ INGREDIENT_CATEGORIES = {
         {"name": "pichana", "category": "meat"},
         {"name": "churrasco", "category": "meat"},
         {"name": "ribeye steaks", "category": "meat"},
-        {"name": "squirrel", "category": "meat"},
         {"name": "rabbit", "category": "meat"},
-        {"name": "quail", "category": "meat"},
-        {"name": "woodpecker", "category": "meat"}
+        {"name": "quail", "category": "meat"}
     ], key=lambda x: x["name"]),
     "vegetables": sorted([
         {"name": "cauliflower", "category": "vegetables"},
@@ -303,7 +301,6 @@ INGREDIENT_CATEGORIES = {
     "seafood": sorted([
         {"name": "salmon", "category": "seafood"},
         {"name": "shrimp", "category": "seafood"},
-        {"name": "cod", "category": "seafood"},
         {"name": "tuna", "category": "seafood"},
         {"name": "yellowtail snapper", "category": "seafood"},
         {"name": "grouper", "category": "seafood"},
