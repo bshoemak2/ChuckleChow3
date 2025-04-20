@@ -9,7 +9,7 @@ from recipe_generator import match_predefined_recipe, generate_dynamic_recipe, g
 from helpers import validate_input, calculate_nutrition, generate_share_text
 from database import init_db, get_all_recipes
 from dotenv import load_dotenv
-from fuzzywuzzy import fuzz
+import difflib
 import random
 
 # Configure logging
@@ -76,25 +76,52 @@ FUNNY_PREFIXES = ["Redneck", "Drunk", "Hillbilly", "Bubba’s", "Sassy Granny’
 FUNNY_SUFFIXES = ["Fry", "Hoedown", "Feast", "Supper", "Brawl"]
 SPICES_AND_EXTRAS = ["1 tsp salt", "1/2 tsp black pepper", "1 tbsp olive oil", "1 tsp garlic powder", "1 tbsp lemon juice"]
 CHAOS_TIPS = {
-    "meat": ["Grill it till the neighbors holler!", "Fry it like you’re wrestlin’ a gator!"],
-    "vegetables": ["Roast ‘em till they sing like a banjo!", "Sauté like you’re dancin’ at a hoedown!"],
-    "fruits": ["Bake ‘em sweeter’n a moonshine kiss!", "Simmer like you’re brewin’ trouble!"],
-    "seafood": ["Grill ‘em till they flop like a fish outta water!", "Sauté with a rebel yell!"],
-    "dairy": ["Melt it smoother’n a barnyard ballad!", "Bake it creamier’n Granny’s gravy!"],
-    "bread_carbs": ["Toast it crispier’n a campfire yarn!", "Bake it fluffier’n a possum’s tail!"],
-    "devil_water": ["Mix it wilder’n a saloon brawl!", "Simmer it sneakier’n moonshine!"]
+    "meat": {
+        "ground beef": "Fry it till it sizzles like a barn dance!",
+        "chicken": "Grill it like you’re chasin’ a runaway hen!",
+        "default": "Grill it till the neighbors holler!"
+    },
+    "vegetables": {
+        "broccoli": "Roast it till it begs for mercy!",
+        "carrot": "Sauté like you’re stirrin’ up trouble!",
+        "default": "Roast ‘em till they sing like a banjo!"
+    },
+    "fruits": {
+        "apple": "Bake it sweeter’n a moonshine pie!",
+        "default": "Bake ‘em sweeter’n a moonshine kiss!"
+    },
+    "seafood": {
+        "shrimp": "Sauté till they pop like firecrackers!",
+        "default": "Grill ‘em till they flop like a fish outta water!"
+    },
+    "dairy": {
+        "cheese": "Melt it smoother’n a country crooner!",
+        "default": "Melt it smoother’n a barnyard ballad!"
+    },
+    "bread_carbs": {
+        "bread": "Toast it crispier’n a tall tale!",
+        "default": "Toast it crispier’n a campfire yarn!"
+    },
+    "devil_water": {
+        "tequila": "Splash it like you’re startin’ a bar fight!",
+        "moonshine": "Simmer it sneakier’n a bootlegger’s stash!",
+        "default": "Mix it wilder’n a saloon brawl!"
+    }
 }
 INSULTS = ["Tastier than roadkill!", "Even yer cousin’d eat it!", "Good enough for the barn!"]
 LIQUID_INGREDIENTS = ["beer", "moonshine", "tequila", "vodka", "whiskey"]
 
 INGREDIENT_PAIRS = {
-    "ground beef": ["onion", "cheese", "beer"],
-    "chicken": ["lemon", "butter", "rice"],
-    "pork": ["apple", "whiskey", "potato"],
-    "salmon": ["lemon", "butter", "vodka"],
-    "broccoli": ["garlic", "lemon", "olive oil"],
-    "carrot": ["butter", "honey", "thyme"],
-    "moonshine": ["pork", "chicken", "apple"]
+    "ground beef": ["onion", "cheese", "beer", "tomato"],
+    "chicken": ["lemon", "butter", "rice", "garlic"],
+    "pork": ["apple", "whiskey", "potato", "honey"],
+    "salmon": ["lemon", "butter", "vodka", "dill"],
+    "broccoli": ["garlic", "lemon", "olive oil", "cheese"],
+    "carrot": ["butter", "honey", "thyme", "ginger"],
+    "moonshine": ["pork", "chicken", "apple", "peach"],
+    "tequila": ["shrimp", "avocado", "tomato", "lime"],
+    "cheese": ["broccoli", "pasta", "tomato", "bread"],
+    "apple": ["pork", "whiskey", "cinnamon", "butter"]
 }
 
 METHOD_PREFERENCES = {
@@ -107,39 +134,95 @@ METHOD_PREFERENCES = {
 
 RECIPE_TEMPLATES = {
     "meat": [
-        "Prep: Season {ingredients} with {extra}—rub it like you mean it!",
-        "Cook: {method} in {equipment} over {heat} for {time}, flippin’ like a rodeo clown.",
-        "Serve: Plate with a side of spuds or cornbread. {insult}"
+        [
+            "Prep: Season {ingredients} with {extra}—rub it like you mean it!",
+            "Cook: {method} in {equipment} over {heat} for {time}, flippin’ like a rodeo clown.",
+            "Serve: Plate with a side of spuds or cornbread. {insult}"
+        ],
+        [
+            "Prep: Marinate {ingredients} in {extra} for 15 minutes—let it soak up the chaos!",
+            "Cook: {method} in {equipment} over {heat} for {time}, stirrin’ like you’re mixin’ moonshine.",
+            "Combine: Add a splash of {devil_water} for a kick, cook 2 minutes.",
+            "Serve: Dish up with rice or greens. {insult}"
+        ]
     ],
     "vegetables": [
-        "Prep: Preheat oven to 400°F (or medium-high skillet for sauté). Chop {ingredients} into bite-sized chunks—mind yer fingers!",
-        "Cook: {method} with {extra} in {equipment} over {heat} for {time}, tossin’ like a salad at a hoedown.",
-        "Serve: Dish up with a sprinkle of herbs or a drizzle of lemon. {insult}"
+        [
+            "Prep: Preheat oven to 400°F (or medium-high skillet for sauté). Chop {ingredients} into bite-sized chunks—mind yer fingers!",
+            "Cook: {method} with {extra} in {equipment} over {heat} for {time}, tossin’ like a salad at a hoedown.",
+            "Serve: Dish up with a sprinkle of herbs or a drizzle of lemon. {insult}"
+        ],
+        [
+            "Prep: Wash and chop {ingredients}—cry like you’re watchin’ a country ballad if it’s onions!",
+            "Cook: {method} in {equipment} with {extra} over {heat} for {time}, stirrin’ gentle-like.",
+            "Finish: Toss with a pinch of {spice} for extra zing.",
+            "Serve: Pair with bread or a protein. {insult}"
+        ]
     ],
     "fruits": [
-        "Prep: Slice {ingredients}—don’t let ‘em roll away!",
-        "Cook: {method} with {extra} in {equipment} over {heat} for {time}, stirrin’ gentle-like.",
-        "Serve: Serve warm with a dollop of yogurt or a splash of devil water. {insult}"
+        [
+            "Prep: Slice {ingredients}—don’t let ‘em roll away!",
+            "Cook: {method} with {extra} in {equipment} over {heat} for {time}, stirrin’ gentle-like.",
+            "Serve: Serve warm with a dollop of yogurt or a splash of devil water. {insult}"
+        ],
+        [
+            "Prep: Peel and chop {ingredients}—make it quick like a jackrabbit!",
+            "Cook: {method} in {equipment} with {extra} over {heat} for {time}, simmerin’ low and slow.",
+            "Finish: Dust with a pinch of cinnamon or sugar.",
+            "Serve: Top with whipped cream or ice cream. {insult}"
+        ]
     ],
     "seafood": [
-        "Prep: Clean {ingredients}—watch them fishy bits!",
-        "Cook: {method} with {extra} in {equipment} over {heat} for {time}, flippin’ careful-like.",
-        "Serve: Plate with a wedge of lemon or a side of rice. {insult}"
+        [
+            "Prep: Clean {ingredients}—watch them fishy bits!",
+            "Cook: {method} with {extra} in {equipment} over {heat} for {time}, flippin’ careful-like.",
+            "Serve: Plate with a wedge of lemon or a side of rice. {insult}"
+        ],
+        [
+            "Prep: Pat dry {ingredients}—keep it cleaner’n a preacher’s plate!",
+            "Cook: {method} in {equipment} with {extra} over {heat} for {time}, searin’ till golden.",
+            "Finish: Drizzle with a splash of {devil_water} or herb butter.",
+            "Serve: Serve hot with veggies or cornbread. {insult}"
+        ]
     ],
     "dairy": [
-        "Prep: Measure {ingredients}—don’t spill the milk!",
-        "Cook: {method} with {extra} in {equipment} over {heat} for {time}, stirrin’ smooth.",
-        "Serve: Spread on bread or mix with carbs for a creamy delight. {insult}"
+        [
+            "Prep: Measure {ingredients}—don’t spill the milk!",
+            "Cook: {method} with {extra} in {equipment} over {heat} for {time}, stirrin’ smooth.",
+            "Serve: Spread on bread or mix with carbs for a creamy delight. {insult}"
+        ],
+        [
+            "Prep: Grate or melt {ingredients}—get it gooey like a summer night!",
+            "Cook: {method} in {equipment} with {extra} over {heat} for {time}, blendin’ till silky.",
+            "Finish: Sprinkle with a pinch of {spice} for flair.",
+            "Serve: Pair with pasta or veggies. {insult}"
+        ]
     ],
     "bread_carbs": [
-        "Prep: Prep {ingredients}—slice or cook as needed.",
-        "Cook: {method} with {extra} in {equipment} over {heat} for {time}, toasty-like.",
-        "Serve: Serve hot with butter or a heap of veggies. {insult}"
+        [
+            "Prep: Prep {ingredients}—slice or cook as needed.",
+            "Cook: {method} with {extra} in {equipment} over {heat} for {time}, toasty-like.",
+            "Serve: Serve hot with butter or a heap of veggies. {insult}"
+        ],
+        [
+            "Prep: Boil or prep {ingredients}—don’t let it stick like a bad joke!",
+            "Cook: {method} in {equipment} with {extra} over {heat} for {time}, stirrin’ steady.",
+            "Finish: Toss with a drizzle of olive oil or sauce.",
+            "Serve: Top with cheese or protein. {insult}"
+        ]
     ],
     "devil_water": [
-        "Prep: Measure {ingredients}—don’t drink it yet!",
-        "Cook: {method} with {extra} in {equipment} over {heat} for {time}, mixin’ like a bar brawl.",
-        "Serve: Sip with a side of grit or pour over dessert. {insult}"
+        [
+            "Prep: Measure {ingredients}—don’t drink it yet!",
+            "Cook: {method} with {extra} in {equipment} over {heat} for {time}, mixin’ like a bar brawl.",
+            "Serve: Sip with a side of grit or pour over dessert. {insult}"
+        ],
+        [
+            "Prep: Chill {ingredients}—keep it cooler’n a moonlit night!",
+            "Cook: {method} in {equipment} with {extra} over {heat} for {time}, shakin’ like a saloon dance.",
+            "Finish: Garnish with a twist of lemon or a sprig of mint.",
+            "Serve: Serve in a mason jar with a tall tale. {insult}"
+        ]
     ]
 }
 
@@ -149,8 +232,11 @@ AMAZON_ASINS = {
     "pork": "B09J8K9M2P",
     "broccoli": "B08X6J2N4P",
     "oil": "B00N3W8W8W",
-    "moonshine": "B08J4K9L2P",  # Placeholder
-    "onion": "B08J4K9L2P"       # Placeholder
+    "moonshine": "B08J4K9L2P",
+    "onion": "B08J4K9L2P",
+    "cheese": "B07X6J2N4P",
+    "lemon": "B09K8J2N4P",
+    "tomato": "B08X6J2N4P"
 }
 
 INGREDIENT_CATEGORIES = {
@@ -237,8 +323,8 @@ def score_recipe(recipe, ingredients, preferences):
                 recipe_ingredients = set(recipe['ingredients'])
         input_ingredients = set(ingredients)
         for input_ing in input_ingredients:
-            best_match = max([fuzz.ratio(input_ing.lower(), r_ing.lower()) for r_ing in recipe_ingredients], default=0)
-            score += best_match / 100
+            best_match = max([difflib.SequenceMatcher(None, input_ing.lower(), r_ing.lower()).ratio() for r_ing in recipe_ingredients], default=0)
+            score += best_match
             if input_ing in INGREDIENT_PAIRS:
                 for paired in INGREDIENT_PAIRS[input_ing]:
                     if paired in recipe_ingredients:
@@ -252,8 +338,18 @@ def process_recipe(recipe):
         if not input_ingredients and 'ingredients' in recipe:
             input_ingredients = [ing[0] if isinstance(ing, (tuple, list)) else ing for ing in recipe['ingredients']]
         
+        # Filter out invalid ingredients
+        valid_ingredients = []
+        all_valid_ingredients = {item['name'] for items in INGREDIENT_CATEGORIES.values() for item in items}
+        for ing in input_ingredients:
+            if isinstance(ing, (tuple, list)):
+                ing = ing[0]
+            if ing in all_valid_ingredients:
+                valid_ingredients.append(ing)
+        input_ingredients = valid_ingredients or input_ingredients[:2]  # Fallback to first 2 if none valid
+
         # Determine primary category
-        primary_category = "vegetables"  # Default
+        primary_category = "vegetables"
         for ing in input_ingredients:
             for cat, items in INGREDIENT_CATEGORIES.items():
                 if ing in [item['name'] for item in items]:
@@ -262,7 +358,7 @@ def process_recipe(recipe):
             if primary_category != "vegetables":
                 break
 
-        # Select method based on category
+        # Select method
         method = random.choice(COOKING_METHODS.get(primary_category, ["Bake"]))
         for ing in input_ingredients:
             if ing in METHOD_PREFERENCES:
@@ -271,54 +367,53 @@ def process_recipe(recipe):
         prefix = random.choice(FUNNY_PREFIXES)
         suffix = random.choice(FUNNY_SUFFIXES)
         extras = random.sample(SPICES_AND_EXTRAS, k=random.randint(1, 2))
-        extra_text = f"{', '.join(extras)}" if extras else "a pinch of salt"
+        extra_text = f"{', '.join(extras)}"
+        spice = extras[0].split()[-1].lower()
 
-        # Category-specific measurements
+        # Ingredient-specific measurements
         measurements = {
-            "meat": ["1 lb", "cubed"],
-            "vegetables": ["2 cups", "chopped"],
-            "fruits": ["1 cup", "sliced"],
-            "seafood": ["1 lb", "cleaned"],
-            "dairy": ["1/2 cup", "grated"],
-            "bread_carbs": ["1 cup", "cooked"],
-            "devil_water": ["1/4 cup", ""]
+            "ground beef": ["1 lb", "ground"],
+            "chicken": ["1 lb", "cut into strips"],
+            "pork": ["1 lb", "cubed"],
+            "broccoli": ["1 head", "florets"],
+            "carrot": ["2 medium", "sliced"],
+            "apple": ["2 medium", "sliced"],
+            "shrimp": ["1 lb", "peeled"],
+            "cheese": ["1 cup", "grated"],
+            "bread": ["4 slices", "toasted"],
+            "tequila": ["1/4 cup", ""],
+            "default": ["1 unit", ""]
         }
         ingredients_list = []
         for ing in input_ingredients:
-            meas = "1 unit"
-            prep = ""
-            for cat, items in INGREDIENT_CATEGORIES.items():
-                if ing in [item['name'] for item in items]:
-                    meas, prep = measurements.get(cat, ["1 unit", ""])
-                    break
+            meas, prep = measurements.get(ing, measurements["default"])
             ingredients_list.append(f"{meas} {ing}" + (f", {prep}" if prep else ""))
         ingredients_list.append("1 tbsp olive oil, for cooking")
 
         title_items = [ing.split()[-1].capitalize() for ing in ingredients_list if "oil" not in ing][:2] or ["Mystery"]
-        recipe['title'] = f"{prefix} {method} {' and '.join(title_items)} {suffix}"
+        recipe['title'] = f"{primary_category.capitalize()}: {prefix} {method} {' and '.join(title_items)} {suffix}"
 
         recipe['ingredients_with_links'] = [
             {"name": ing.split(',')[0].split()[-1], "url": f"https://www.amazon.com/dp/{AMAZON_ASINS.get(ing.split()[-1], 'B08J4K9L2P')}?tag=bshoemak-20"}
             for ing in ingredients_list
         ]
-        recipe['add_all_to_cart'] = ""  # Disabled for modal
+        recipe['add_all_to_cart'] = ""
 
         equipment = random.sample(EQUIPMENT_COOKWARE + EQUIPMENT_TOOLS, k=2)
         quirky_gear = random.choice(EQUIPMENT_QUIRKY)
         primary_equipment = random.choice(METHOD_EQUIPMENT.get(method, EQUIPMENT_COOKWARE))
 
-        chaos_tip = random.choice(CHAOS_TIPS.get(primary_category, ["Toss in a pinch of mischief!"]))
+        chaos_tip = CHAOS_TIPS.get(primary_category, {}).get(input_ingredients[0] if input_ingredients else "default", "Toss in a pinch of mischief!")
         insult = random.choice(INSULTS)
 
-        steps_key = 'steps'
         heat = "medium heat"
         time = "10-15 minutes"
         if method in ["Grill", "Fry", "Sauté"]:
             heat = "medium-high heat"
-            time = "8-12 minutes"
+            time = f"{8 + len(input_ingredients) * 2}-{12 + len(input_ingredients) * 2} minutes"
         elif method == "Bake":
             heat = "400°F"
-            time = "15-20 minutes"
+            time = f"{15 + len(input_ingredients) * 3}-{20 + len(input_ingredients) * 3} minutes"
         elif method == "Steam":
             heat = "boiling water"
             time = "5-10 minutes"
@@ -330,38 +425,43 @@ def process_recipe(recipe):
         for ing in ingredients_list[:2]:
             ing_name = ing.split(',')[0].split()[-1]
             if ing_name in LIQUID_INGREDIENTS:
-                prep_steps.append(f"Measure {ing} and set aside.")
+                prep_steps.append(f"Measure {ing} and set aside—don’t sip it yet!")
             else:
-                prep_steps.append(f"Chop {ing} into bite-sized pieces.")
+                prep_steps.append(f"Chop {ing} into bite-sized pieces—faster’n a jackrabbit!")
         prep_text = " and ".join(prep_steps) if prep_steps else "Prepare ingredients."
 
-        template = RECIPE_TEMPLATES.get(primary_category, RECIPE_TEMPLATES["vegetables"])
+        template = random.choice(RECIPE_TEMPLATES.get(primary_category, RECIPE_TEMPLATES["vegetables"]))
+        devil_water = next((ing.split()[-1] for ing in ingredients_list if ing.split()[-1] in LIQUID_INGREDIENTS), None)
         recipe['steps'] = [
             template[0].format(ingredients=' and '.join(ingredients_list[:2]), extra=extra_text, equipment=primary_equipment),
-            template[1].format(method=method.lower(), equipment=primary_equipment, heat=heat, time=time),
-            template[2].format(**({'extra': extra_text, 'insult': insult} if '{extra}' in template[2] else {'insult': insult})),
-            f"Chaos Tip: {chaos_tip}"
+            template[1].format(method=method.lower(), equipment=primary_equipment, heat=heat, time=time, extra=extra_text, devil_water=devil_water or "juice", spice=spice),
+            template[2].format(**({'extra': extra_text, 'insult': insult, 'spice': spice} if '{extra}' in template[2] else {'insult': insult, 'spice': spice}))
         ]
+        if len(template) > 3:
+            recipe['steps'].insert(2, template[3].format(devil_water=devil_water or "juice", spice=spice))
 
         recipe['ingredients'] = ingredients_list
         recipe['equipment'] = equipment
         recipe['chaos_gear'] = quirky_gear
 
-        # Improved nutrition calculation
-        nutrition = {"calories": 0, "chaos_factor": 7}
-        calorie_data = {
-            "meat": 250,  # per lb
-            "vegetables": 50,  # per cup
-            "fruits": 60,  # per cup
-            "seafood": 200,  # per lb
-            "dairy": 100,  # per 1/2 cup
-            "bread_carbs": 150,  # per cup
-            "devil_water": 80  # per 1/4 cup
+        # Enhanced nutrition
+        nutrition = {"calories": 0, "protein": 0, "fat": 0, "chaos_factor": 7}
+        nutrition_data = {
+            "meat": {"calories": 250, "protein": 25, "fat": 15},
+            "vegetables": {"calories": 50, "protein": 2, "fat": 0},
+            "fruits": {"calories": 60, "protein": 1, "fat": 0},
+            "seafood": {"calories": 200, "protein": 20, "fat": 10},
+            "dairy": {"calories": 100, "protein": 5, "fat": 8},
+            "bread_carbs": {"calories": 150, "protein": 5, "fat": 2},
+            "devil_water": {"calories": 80, "protein": 0, "fat": 0}
         }
         for item in input_ingredients:
             for cat, items in INGREDIENT_CATEGORIES.items():
                 if item in [i['name'] for i in items]:
-                    nutrition["calories"] += calorie_data.get(cat, 100)
+                    data = nutrition_data.get(cat, {"calories": 100, "protein": 5, "fat": 5})
+                    nutrition["calories"] += data["calories"]
+                    nutrition["protein"] += data["protein"]
+                    nutrition["fat"] += data["fat"]
                     break
         nutrition["calories"] = max(100, nutrition["calories"])
         recipe['nutrition'] = nutrition
@@ -386,7 +486,7 @@ def process_recipe(recipe):
             "title": "Error Recipe",
             "ingredients": [],
             "steps": ["Something went wrong!"],
-            "nutrition": {"calories": 0, "chaos_factor": 0}
+            "nutrition": {"calories": 0, "protein": 0, "fat": 0, "chaos_factor": 0}
         }
 
 @app.route('/api', methods=['GET'])
@@ -457,7 +557,7 @@ def generate_recipe():
                     "title": "Fallback Recipe",
                     "ingredients": [],
                     "steps": ["Try again later!"],
-                    "nutrition": {"calories": 0, "chaos_factor": 0}
+                    "nutrition": {"calories": 0, "protein": 0, "fat": 0, "chaos_factor": 0}
                 }
             if style:
                 processed['title'] = f"{processed['title']} ({style})"
@@ -467,6 +567,11 @@ def generate_recipe():
 
         if is_random:
             logging.debug("Generating random recipe")
+            # Limit random recipe to 1-3 valid ingredients
+            all_ingredients = []
+            for items in INGREDIENT_CATEGORIES.values():
+                all_ingredients.extend([item['name'] for item in items])
+            ingredients = random.sample(all_ingredients, k=random.randint(1, 3))
             recipe = generate_random_recipe('english')
             logging.debug(f"Generated random recipe: {recipe}")
             if not recipe or not isinstance(recipe, dict):
