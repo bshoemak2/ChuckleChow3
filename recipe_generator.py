@@ -250,10 +250,7 @@ def generate_dynamic_recipe(ingredients, preferences):
 
     steps_en.extend([
         f"Combine all ingredients in the skillet.",
-        f"Season with 1 tsp salt, 1 tsp ground pepper, and {extra_seasoning or '1/2 tsp of your preferred spice (e.g., paprika)'}."
-        if extra_seasoning else f"Season with 1 tsp salt, 1 tsp ground pepper, and 1/2 tsp
-
-System: of your preferred spice (e.g., paprika).",
+        f"Season with 1 tsp salt, 1 tsp ground pepper, and {extra_seasoning or '1/2 tsp of your preferred spice (e.g., paprika)'}.",
         f"Serve hot with a side of your choice (e.g., bread or salad). Tip: Garnish with fresh herbs for extra flavor!"
     ])
     steps_es.extend([
