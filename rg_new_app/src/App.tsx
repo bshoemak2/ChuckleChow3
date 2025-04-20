@@ -1,35 +1,78 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, { useState, useEffect } from 'react';
+import { generateRecipe, getIngredients } from './api';
+import { Recipe } from './types';
+import './App.css';
 
-function App() {
-  const [count, setCount] = useState(0)
+const App: React.FC = () => {
+  const [ingredients, setIngredients] = useState<Record<string, { name: string; emoji: string }[]>>({});
+  const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
+  const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getIngredients()
+      .then(data => setIngredients(data))
+      .catch(() => setError('Failed to load ingredients'));
+  }, []);
+
+  const handleGenerateRecipe = async () => {
+    if (selectedIngredients.length === 0) {
+      setError("Pick somethin’, ya lazy bum! 😛");
+      return;
+    }
+    try {
+      const data = await generateRecipe(selectedIngredients, false);
+      setRecipe(data);
+      setError(null);
+    } catch {
+      setError('Recipe generation flopped—blame the chef!');
+    }
+  };
 
   return (
-    <>
+    <div className="App">
+      <h1>Chuckle & Chow</h1>
+      {error && <p className="error">{error}</p>}
       <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+        <h2>Select Ingredients</h2>
+        {Object.keys(ingredients).map(category => (
+          <div key={category}>
+            <h3>{category}</h3>
+            {ingredients[category].map((item) => (
+              <label key={item.name}>
+                <input
+                  type="checkbox"
+                  value={item.name}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedIngredients([...selectedIngredients, item.name]);
+                    } else {
+                      setSelectedIngredients(selectedIngredients.filter(i => i !== item.name));
+                    }
+                  }}
+                />
+                {item.name} {item.emoji}
+              </label>
+            ))}
+          </div>
+        ))}
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+      <button onClick={handleGenerateRecipe}>🍳 Cook Me a Hoot! 🎉</button>
+      {recipe && (
+        <div>
+          <h2>{recipe.title}</h2>
+          <p>Ingredients: {recipe.ingredients.join(', ')}</p>
+          <ul>
+            {recipe.steps.map((step, index) => (
+              <li key={index}>{step}</li>
+            ))}
+          </ul>
+          <p>Chaos Gear: {recipe.chaos_gear}</p>
+          <p>Calories: {recipe.nutrition.calories} (Chaos: {recipe.nutrition.chaos_factor}/10)</p>
+        </div>
+      )}
+    </div>
+  );
+};
 
-export default App
+export default App;

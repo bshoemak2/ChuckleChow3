@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
-
-const API_URL = 'http://localhost:5000';
+import { Favorite } from './types';
 
 export const useFavorites = () => {
-  const [favorites, setFavorites] = useState([]);
+  const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [showFavorites, setShowFavorites] = useState(false);
-  const [selectedFavorite, setSelectedFavorite] = useState(null);
+  const [selectedFavorite, setSelectedFavorite] = useState<Favorite | null>(null);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
@@ -13,13 +12,13 @@ export const useFavorites = () => {
       try {
         const saved = localStorage.getItem('favorites');
         if (saved) {
-          let parsedFavorites = JSON.parse(saved);
-          parsedFavorites = parsedFavorites.map((fav, index) => ({
+          const parsedFavorites: Favorite[] = JSON.parse(saved);
+          const cleanedFavorites = parsedFavorites.map((fav, index) => ({
             ...fav,
             id: fav.id || Date.now() + index,
           }));
-          console.log('Loaded and fixed favorites from localStorage:', parsedFavorites);
-          setFavorites(parsedFavorites);
+          console.log('Loaded and fixed favorites from localStorage:', cleanedFavorites);
+          setFavorites(cleanedFavorites);
         } else {
           console.log('No favorites found in localStorage');
         }
@@ -30,9 +29,9 @@ export const useFavorites = () => {
     loadFavorites();
   }, []);
 
-  const saveFavorite = (recipe) => {
+  const saveFavorite = (recipe: Favorite) => {
     if (!recipe) return;
-    const recipeWithId = { ...recipe, id: recipe.id || Date.now() };
+    const recipeWithId: Favorite = { ...recipe, id: recipe.id || Date.now() };
     if (!favorites.some((fav) => fav.title === recipeWithId.title)) {
       const newFavorites = [...favorites, recipeWithId];
       setFavorites(newFavorites);
@@ -49,13 +48,13 @@ export const useFavorites = () => {
     }
   };
 
-  const removeFavorite = (recipe_id, language) => {
-    if (!recipe_id) {
+  const removeFavorite = (recipeId: number, language: 'english' | 'spanish') => {
+    if (!recipeId) {
       console.error('RemoveFavorite: No valid ID provided');
       window.alert('Cannot remove recipe: Invalid ID');
       return;
     }
-    console.log('RemoveFavorite called with ID:', recipe_id, 'Type:', typeof recipe_id, 'Current favorites:', favorites);
+    console.log('RemoveFavorite called with ID:', recipeId, 'Type:', typeof recipeId, 'Current favorites:', favorites);
 
     const confirmRemoval = window.confirm(
       language === 'english'
@@ -65,12 +64,12 @@ export const useFavorites = () => {
 
     if (confirmRemoval) {
       try {
-        const idToRemove = Number(recipe_id);
-        const newFavorites = favorites.filter((fav) => Number(fav.id) !== idToRemove);
+        const idToRemove = Number(recipeId);
+        const newFavorites = favorites.filter((fav) => fav.id !== idToRemove);
         console.log('New favorites after filter:', newFavorites);
 
-        setFavorites([...newFavorites]);
-        if (selectedFavorite && Number(selectedFavorite.id) === idToRemove) {
+        setFavorites(newFavorites);
+        if (selectedFavorite && selectedFavorite.id === idToRemove) {
           setSelectedFavorite(null);
           console.log('Cleared selectedFavorite');
         }
@@ -89,11 +88,11 @@ export const useFavorites = () => {
     }
   };
 
-  const shareRecipe = (recipe, platform = 'default') => {
+  const shareRecipe = (recipe: Favorite, platform: 'facebook' | 'x' | 'whatsapp' | 'email' | 'default' = 'default') => {
     if (!recipe) return;
 
     const shareText = recipe.shareText || `${recipe.title}\nIngredients: ${recipe.ingredients.join(', ')}\nSteps: ${recipe.steps.join('; ')}`;
-    const url = 'https://recipegenerator-ort9.onrender.com/';
+    const url = 'https://chuckle-and-chow.onrender.com/'; // Update to match Render URL
     const fullMessage = `${shareText}\nCheck out my app: ${url}`;
 
     try {
@@ -101,7 +100,7 @@ export const useFavorites = () => {
         const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(shareText)}`;
         window.open(fbUrl, '_blank');
       } else if (platform === 'x') {
-        const xUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(fullMessage)}`;
+        const xUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(fullMessage)}`;
         window.open(xUrl, '_blank');
       } else if (platform === 'whatsapp') {
         const waUrl = `https://wa.me/?text=${encodeURIComponent(fullMessage)}`;
@@ -129,7 +128,7 @@ export const useFavorites = () => {
     setSearch('');
   };
 
-  const filteredFavorites = favorites.filter((fav) =>
+  const filteredFavorites = favorites.filter((fav: Favorite) =>
     fav.title.toLowerCase().includes(search.toLowerCase())
   );
 

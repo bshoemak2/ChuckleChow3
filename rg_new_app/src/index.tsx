@@ -1,13 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, CSSProperties } from 'react';
 import { motion } from 'framer-motion';
 import { styles } from './_styles';
 import { Link } from 'react-router-dom';
 import { chaosGearTips } from './_data';
+import { generateRecipe } from './api';
+import { Recipe, Favorite } from './types';
 
-class ErrorBoundary extends React.Component {
-  state = { hasError: false, error: null };
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
 
-  static getDerivedStateFromError(error) {
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { hasError: false, error: null };
+
+  static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
     console.error('ERROR_BOUNDARY_2025_04_25', error);
     return { hasError: true, error };
   }
@@ -15,8 +26,8 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={styles().errorContainer}>
-          <p style={{ ...styles().error, color: '#f00' }}>
+        <div style={styles('light').errorContainer}>
+          <p style={{ ...styles('light').error, color: '#f00' }}>
             Chaos broke loose! 🐷 {this.state.error?.message}
           </p>
         </div>
@@ -35,28 +46,21 @@ export default function HomeScreen() {
   const [dairy, setDairy] = useState('');
   const [carb, setCarb] = useState('');
   const [devilWater, setDevilWater] = useState('');
-  const [recipe, setRecipe] = useState(null);
-  const [recipeTitle, setRecipeTitle] = useState(null);
-  const [recipeIngredients, setRecipeIngredients] = useState(null);
-  const [recipeSteps, setRecipeSteps] = useState(null);
-  const [recipeNutrition, setRecipeNutrition] = useState(null);
-  const [recipeEquipment, setRecipeEquipment] = useState(null);
-  const [recipeChaosGear, setRecipeChaosGear] = useState(null);
-  const [recipeLinks, setRecipeLinks] = useState(null);
+  const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [lastRandom, setLastRandom] = useState(false);
   const [showCartModal, setShowCartModal] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [favorites, setFavorites] = useState([]);
+  const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [showFavorites, setShowFavorites] = useState(false);
-  const [selectedFavorite, setSelectedFavorite] = useState(null);
+  const [selectedFavorite, setSelectedFavorite] = useState<Favorite | null>(null);
   const [search, setSearch] = useState('');
-  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
+  const [theme, setTheme] = useState<'light' | 'dark'>(
+    (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
+  );
   const [chaosGearTip, setChaosGearTip] = useState('');
   const [rating, setRating] = useState(0);
-
-  const API_URL = 'http://localhost:5000';
 
   const INGREDIENT_CATEGORIES = {
     meat: [
@@ -199,12 +203,12 @@ export default function HomeScreen() {
       try {
         const saved = localStorage.getItem('favorites');
         if (saved) {
-          const parsedFavorites = JSON.parse(saved);
-          const cleanedFavorites = parsedFavorites.map((fav) => ({
+          const parsedFavorites: Favorite[] = JSON.parse(saved);
+          const cleanedFavorites = parsedFavorites.map(fav => ({
             title: fav.title || 'Unknown Recipe',
             ingredients: fav.ingredients || [],
             steps: fav.steps || [],
-            nutrition: fav.nutrition || { calories: 0 },
+            nutrition: fav.nutrition || { calories: 0, chaos_factor: 0 },
             equipment: fav.equipment || [],
             shareText: fav.shareText || '',
             ingredients_with_links: fav.ingredients_with_links || [],
@@ -234,12 +238,15 @@ export default function HomeScreen() {
     const selectedIngredients = [meat, vegetable, fruit, seafood, dairy, carb, devilWater].filter(Boolean);
     if (!selectedIngredients.length && !isRandom) {
       setRecipe({
-        title: "Error 🤦‍♂️",
+        title: 'Error 🤦‍♂️',
         ingredients: [],
         steps: ["Pick somethin’, ya lazy bum! 😛"],
-        nutrition: { calories: 0 },
+        nutrition: { calories: 0, chaos_factor: 0 },
         equipment: [],
         shareText: '',
+        ingredients_with_links: [],
+        add_all_to_cart: '',
+        chaos_gear: ''
       });
       setError(null);
       setIsLoading(false);
@@ -248,50 +255,26 @@ export default function HomeScreen() {
     }
     setIsLoading(true);
     setRecipe(null);
-    setRecipeTitle(null);
-    setRecipeIngredients(null);
-    setRecipeSteps(null);
-    setRecipeNutrition(null);
-    setRecipeEquipment(null);
-    setRecipeChaosGear(null);
-    setRecipeLinks(null);
     setError(null);
     setLastRandom(isRandom);
-    const url = `${API_URL}/generate_recipe`;
-    const requestBody = {
-      ingredients: selectedIngredients,
-      preferences: { isRandom },
-    };
     try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `API failed: ${response.status}`);
-      }
-      const data = await response.json();
+      const data = await generateRecipe(selectedIngredients, isRandom);
       console.log('Fetched recipe:', data);
-      setRecipeTitle(data.title);
-      setTimeout(() => setRecipeIngredients(data.ingredients), 500);
-      setTimeout(() => setRecipeSteps(data.steps), 1000);
-      setTimeout(() => setRecipeNutrition(data.nutrition), 1500);
-      setTimeout(() => setRecipeEquipment(data.equipment), 2000);
-      setTimeout(() => setRecipeChaosGear(data.chaos_gear), 2500);
-      setTimeout(() => setRecipeLinks(data.ingredients_with_links), 3000);
       setRecipe(data);
-    } catch (error) {
+      setTimeout(() => setRecipe(data), 500); // Simplified for clarity
+    } catch (error: any) {
       console.error('Fetch error:', error.message);
       setError(error.message);
       setRecipe({
-        title: "Error 🤦‍♂️",
+        title: 'Error 🤦‍♂️',
         ingredients: [],
         steps: [`Cookin’ crashed: ${error.message} 🤡`],
-        nutrition: { calories: 0 },
+        nutrition: { calories: 0, chaos_factor: 0 },
         equipment: [],
         shareText: '',
+        ingredients_with_links: [],
+        add_all_to_cart: '',
+        chaos_gear: ''
       });
     } finally {
       setIsLoading(false);
@@ -300,7 +283,7 @@ export default function HomeScreen() {
 
   const saveFavorite = () => {
     if (recipe && !favorites.some((fav) => fav.title === recipe.title)) {
-      const recipeWithId = { ...recipe, id: Date.now(), rating };
+      const recipeWithId: Favorite = { ...recipe, id: Date.now(), rating };
       const newFavorites = [...favorites, recipeWithId];
       setFavorites(newFavorites);
       try {
@@ -315,7 +298,7 @@ export default function HomeScreen() {
     }
   };
 
-  const removeFavorite = (recipeId, language) => {
+  const removeFavorite = (recipeId: number, language: 'english' | 'spanish') => {
     if (!recipeId) {
       window.alert('Cannot remove recipe: Invalid ID');
       return;
@@ -328,9 +311,9 @@ export default function HomeScreen() {
     if (confirmRemoval) {
       try {
         const idToRemove = Number(recipeId);
-        const newFavorites = favorites.filter((fav) => Number(fav.id) !== idToRemove);
+        const newFavorites = favorites.filter((fav) => fav.id !== idToRemove);
         setFavorites(newFavorites);
-        if (selectedFavorite && Number(selectedFavorite.id) === idToRemove) {
+        if (selectedFavorite && selectedFavorite.id === idToRemove) {
           setSelectedFavorite(null);
         }
         localStorage.setItem('favorites', JSON.stringify(newFavorites));
@@ -346,7 +329,7 @@ export default function HomeScreen() {
     }
   };
 
-  const shareRecipe = (platform = 'default') => {
+  const shareRecipe = (platform: 'facebook' | 'twitter' | 'default' = 'default') => {
     const currentRecipe = selectedFavorite || recipe;
     if (!currentRecipe) return;
     const shareText = currentRecipe.shareText || `${currentRecipe.title}\nIngredients: ${currentRecipe.ingredients.join(', ')}\nSteps: ${currentRecipe.steps.join('; ')}`;
@@ -354,7 +337,7 @@ export default function HomeScreen() {
     const fullMessage = `Get a load of this hogwash: ${shareText}\nCheck out my app: ${url} 🤠`;
     try {
       if (platform === 'facebook') {
-        const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(shareText)}`;
+        const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}"e=${encodeURIComponent(shareText)}`;
         window.open(fbUrl, '_blank');
       } else if (platform === 'twitter') {
         const xUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(fullMessage)}`;
@@ -368,8 +351,7 @@ export default function HomeScreen() {
       } else {
         window.alert('Sharing not supported. Copy this: ' + fullMessage);
       }
-    } catch (error) {
-      console.error('Share error:', error);
+    } catch {
       setError('Failed to share');
     }
   };
@@ -382,8 +364,7 @@ export default function HomeScreen() {
       await navigator.clipboard.writeText(textToCopy);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error('Clipboard error:', error);
+    } catch {
       setError('Clipboard failed');
     }
   };
@@ -397,13 +378,6 @@ export default function HomeScreen() {
     setCarb('');
     setDevilWater('');
     setRecipe(null);
-    setRecipeTitle(null);
-    setRecipeIngredients(null);
-    setRecipeSteps(null);
-    setRecipeNutrition(null);
-    setRecipeEquipment(null);
-    setRecipeChaosGear(null);
-    setRecipeLinks(null);
     setError(null);
     setLastRandom(false);
     setSelectedFavorite(null);
@@ -417,7 +391,7 @@ export default function HomeScreen() {
     setSearch('');
   };
 
-  const handleAddAllToCart = (cartUrl) => {
+  const handleAddAllToCart = (cartUrl: string) => {
     if (cartUrl) {
       window.open(cartUrl, '_blank');
     } else {
@@ -427,13 +401,22 @@ export default function HomeScreen() {
 
   const getRandomTip = () => chaosGearTips[Math.floor(Math.random() * chaosGearTips.length)];
 
-  const PickerSection = ({ label, category, value, onValueChange, bgColor, borderColor }) => (
+  interface PickerSectionProps {
+    label: string;
+    category: keyof typeof INGREDIENT_CATEGORIES;
+    value: string;
+    onValueChange: (value: string) => void;
+    bgColor: string;
+    borderColor: string;
+  }
+
+  const PickerSection: React.FC<PickerSectionProps> = ({ label, category, value, onValueChange, bgColor, borderColor }) => (
     <div style={styles(theme).inputSection}>
-      <p style={{ ...styles(theme).inputLabel, backgroundColor: bgColor, color: '#FFD700' }}>{label}</p>
+      <p style={{ ...styles(theme).inputLabel, backgroundColor: bgColor, color: '#FFD700' } as CSSProperties}>{label}</p>
       <select
         value={value}
         onChange={(e) => onValueChange(e.target.value)}
-        style={{ ...styles(theme).picker, backgroundColor: bgColor, borderColor }}
+        style={{ ...styles(theme).picker, backgroundColor: bgColor, borderColor } as CSSProperties}
         aria-label={label}
       >
         <option value="">None</option>
@@ -446,15 +429,15 @@ export default function HomeScreen() {
     </div>
   );
 
-  const FavoritesList = () => {
+  const FavoritesList: React.FC = () => {
     const filteredFavorites = favorites.filter((fav) =>
       fav.title.toLowerCase().includes(search.toLowerCase())
     );
     const clearSearch = () => setSearch('');
     return (
       <div style={styles(theme).favorites}>
-        <h2 style={styles(theme).subtitle}>⭐ Favorites 💖</h2>
-        <div style={styles(theme).searchRow}>
+        <h2 style={styles(theme).subtitle as CSSProperties}>⭐ Favorites 💖</h2>
+        <div style={styles(theme).searchRow as CSSProperties}>
           <input
             style={styles(theme).input}
             placeholder="Search Favorites..."
@@ -475,9 +458,9 @@ export default function HomeScreen() {
         </div>
         {filteredFavorites.length ? (
           filteredFavorites.map((item) => (
-            <div key={item.id || item.title} style={styles(theme).favItemContainer}>
+            <div key={item.id} style={styles(theme).favItemContainer}>
               <div
-                style={{ flex: 1, cursor: 'pointer' }}
+                style={{ flex: 1, cursor: 'pointer' } as CSSProperties}
                 onClick={() => setSelectedFavorite(item)}
                 tabIndex={0}
                 onKeyDown={(e) => e.key === 'Enter' && setSelectedFavorite(item)}
@@ -487,26 +470,26 @@ export default function HomeScreen() {
               </div>
               <motion.button
                 style={styles(theme).removeButton}
-                onClick={() => removeFavorite(item.id || item.title, 'english')}
+                onClick={() => removeFavorite(item.id, 'english')}
                 whileHover={{ scale: 1.1, rotate: 3 }}
                 aria-label={`Remove ${item.title} from favorites`}
                 tabIndex={0}
-                onKeyDown={(e) => e.key === 'Enter' && removeFavorite(item.id || item.title, 'english')}
+                onKeyDown={(e) => e.key === 'Enter' && removeFavorite(item.id, 'english')}
               >
                 <span style={styles(theme).removeButtonText}>Remove ❌</span>
               </motion.button>
             </div>
           ))
         ) : (
-          <p style={styles(theme).noFavorites}>No favorites found</p>
+          <p style={styles(theme).noFavorites as CSSProperties}>No favorites found</p>
         )}
       </div>
     );
   };
 
-  const AffiliateSection = () => (
-    <div style={styles(theme).affiliateSection}>
-      <p style={styles(theme).affiliateHeader}>💰 Git Yer Loot Here, Y’all! 💸</p>
+  const AffiliateSection: React.FC = () => (
+    <div style={styles(theme).affiliateSection as CSSProperties}>
+      <p style={styles(theme).affiliateHeader as CSSProperties}>💰 Git Yer Loot Here, Y’all! 💸</p>
       {AFFILIATE_LINKS.map((link) => (
         <motion.a
           key={link.title}
@@ -521,21 +504,34 @@ export default function HomeScreen() {
             src={link.image}
             alt={link.title}
             style={styles(theme).affiliateImage}
-            onError={(e) => { e.target.src = '/assets/fallback.png'; }}
+            onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+              e.currentTarget.src = '/assets/fallback.png';
+            }}
           />
           <span style={styles(theme).affiliateText}>{link.title}</span>
         </motion.a>
       ))}
-      <p style={styles(theme).affiliateDisclaimer}>As an Amazon Associate, I earn from qualifyin’ purchases, yeehaw!</p>
+      <p style={styles(theme).affiliateDisclaimer as CSSProperties}>
+        As an Amazon Associate, I earn from qualifyin’ purchases, yeehaw!
+      </p>
     </div>
   );
 
-  const StarRating = ({ rating, setRating }) => (
-    <div style={{ margin: '10px 0' }} role="radiogroup" aria-label="Rate this recipe">
+  interface StarRatingProps {
+    rating: number;
+    setRating: (rating: number) => void;
+  }
+
+  const StarRating: React.FC<StarRatingProps> = ({ rating, setRating }) => (
+    <div style={{ margin: '10px 0' } as CSSProperties} role="radiogroup" aria-label="Rate this recipe">
       {[1, 2, 3, 4, 5].map((star) => (
         <span
           key={star}
-          style={{ cursor: 'pointer', color: star <= rating ? '#FFD700' : theme === 'light' ? '#ccc' : '#666', fontSize: '20px' }}
+          style={{
+            cursor: 'pointer',
+            color: star <= rating ? '#FFD700' : theme === 'light' ? '#ccc' : '#666',
+            fontSize: '20px'
+          } as CSSProperties}
           onClick={() => setRating(star)}
           onKeyDown={(e) => e.key === 'Enter' && setRating(star)}
           tabIndex={0}
@@ -549,7 +545,14 @@ export default function HomeScreen() {
     </div>
   );
 
-  const RecipeCard = ({ recipe, onShare, onSave, onBack }) => (
+  interface RecipeCardProps {
+    recipe: Recipe | Favorite;
+    onShare: (platform?: 'facebook' | 'twitter' | 'default') => void;
+    onSave?: () => void;
+    onBack?: () => void;
+  }
+
+  const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, onShare, onSave, onBack }) => (
     <motion.div
       style={styles(theme).recipeCard}
       initial={{ opacity: 0, rotate: -5 }}
@@ -557,29 +560,29 @@ export default function HomeScreen() {
       transition={{ type: 'spring', stiffness: 100, damping: 10 }}
       whileHover={{ scale: 1.05, rotate: 2 }}
     >
-      {recipeTitle && (
+      {recipe.title && (
         <motion.h2
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          style={styles(theme).recipeTitle}
+          style={styles(theme).recipeTitle as CSSProperties}
         >
-          {recipeTitle || 'No Title'}
+          {recipe.title || 'No Title'}
         </motion.h2>
       )}
-      {recipeIngredients && (
+      {recipe.ingredients && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <p style={styles(theme).recipeSection}>Ingredients:</p>
-          {(recipeIngredients || []).map((ing, i) => {
-            const link = recipeLinks?.find((link) => link.name === ing);
+          {recipe.ingredients.map((ing, i) => {
+            const link = recipe.ingredients_with_links?.find((link) => link.name === ing);
             return (
-              <div key={i} style={{ display: 'flex', alignItems: 'center' }}>
+              <div key={i} style={{ display: 'flex', alignItems: 'center' } as CSSProperties}>
                 <p style={styles(theme).recipeItem}>- {ing}</p>
                 {link && (
                   <a
                     href={link.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ ...styles(theme).recipeItem, color: '#FF9900', marginLeft: 10 }}
+                    style={{ ...styles(theme).recipeItem, color: '#FF9900', marginLeft: 10 } as CSSProperties}
                     aria-label={`Buy ${ing}`}
                   >
                     🛒 Buy
@@ -590,25 +593,25 @@ export default function HomeScreen() {
           })}
         </motion.div>
       )}
-      {recipeSteps && (
+      {recipe.steps && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <p style={styles(theme).recipeSection}>Steps:</p>
-          {(recipeSteps || []).map((step, i) => (
+          {recipe.steps.map((step, i) => (
             <p key={i} style={styles(theme).recipeItem}>
               {i + 1}. {step}
             </p>
           ))}
         </motion.div>
       )}
-      {recipeNutrition && (
+      {recipe.nutrition && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <p style={styles(theme).recipeSection}>Nutrition:</p>
           <p style={styles(theme).recipeItem}>
-            Calories: {recipeNutrition?.calories || 0} (Chaos: {recipeNutrition?.chaos_factor || 0}/10)
+            Calories: {recipe.nutrition.calories || 0} (Chaos: {recipe.nutrition.chaos_factor || 0}/10)
           </p>
         </motion.div>
       )}
-      {(recipeEquipment || recipeChaosGear) && (
+      {(recipe.equipment || recipe.chaos_gear) && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <p style={styles(theme).recipeSection}>Gear:</p>
           <p
@@ -616,7 +619,7 @@ export default function HomeScreen() {
             onMouseEnter={() => setChaosGearTip(getRandomTip())}
             onMouseLeave={() => setChaosGearTip('')}
           >
-            {(recipeEquipment || []).join(', ') || 'None'} {recipeChaosGear ? `, Chaos Gear: ${recipeChaosGear} 🪓` : ''}
+            {(recipe.equipment || []).join(', ') || 'None'} {recipe.chaos_gear ? `, Chaos Gear: ${recipe.chaos_gear} 🪓` : ''}
             {chaosGearTip && (
               <motion.div
                 style={styles(theme).chaosTooltip}
@@ -630,7 +633,7 @@ export default function HomeScreen() {
         </motion.div>
       )}
       <StarRating rating={rating} setRating={setRating} />
-      <div style={styles(theme).recipeActions}>
+      <div style={styles(theme).recipeActions as CSSProperties}>
         <motion.button
           style={{ ...styles(theme).copyButton, backgroundColor: copied ? '#4ECDC4' : '#FF69B4', borderColor: '#FFD700' }}
           onClick={copyToClipboard}
@@ -711,15 +714,15 @@ export default function HomeScreen() {
 
   return (
     <ErrorBoundary>
-      <div style={styles(theme).scrollContainer}>
+      <div style={styles(theme).scrollContainer as CSSProperties}>
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8 }}
-          style={styles(theme).container}
+          style={styles(theme).container as CSSProperties}
         >
-          <h1 style={styles(theme).header}>🤪 Chuckle & Chow: Recipe Rumble 🍔💥</h1>
-          <p style={styles(theme).subheader}>
+          <h1 style={styles(theme).header as CSSProperties}>🤪 Chuckle & Chow: Recipe Rumble 🍔💥</h1>
+          <p style={styles(theme).subheader as CSSProperties}>
             Cookin’ Up Chaos for Rednecks, Rebels, and Rascals! 🎸🔥
           </p>
           <motion.button
@@ -732,7 +735,7 @@ export default function HomeScreen() {
           >
             <span style={styles(theme).copyButtonText}>{theme === 'light' ? '🌙 Moonshine Mode' : '🌞 Daylight Chaos'}</span>
           </motion.button>
-          <div style={styles(theme).trustSection}>
+          <div style={styles(theme).trustSection as CSSProperties}>
             <p style={styles(theme).trustText}>🌶️ Hotter than a jalapeño’s armpit</p>
             <p style={styles(theme).trustText}>🍺 Best with a cold one, yeehaw!</p>
             <p style={styles(theme).trustText}>🐷 Crazier than a hog on a hot tin roof</p>
@@ -802,17 +805,17 @@ export default function HomeScreen() {
                   width: '40px',
                   height: '40px',
                   margin: '0 auto',
-                }}
+                } as CSSProperties}
                 className="chaotic-spinner"
               />
-              <p style={{ ...styles(theme).spinnerText, color: '#FF1493', fontWeight: 'bold' }}>
+              <p style={{ ...styles(theme).spinnerText, color: '#FF1493', fontWeight: 'bold' } as CSSProperties}>
                 🔥 Whippin’ up somethin’ nuttier than squirrel turds... 🐿️
               </p>
               <div style={styles(theme).recipeCard}>
-                <div style={{ ...styles(theme).skeletonBox, height: '30px', width: '80%', marginBottom: '10px' }} />
-                <div style={{ ...styles(theme).skeletonBox, height: '20px', width: '60%', marginBottom: '5px' }} />
-                <div style={{ ...styles(theme).skeletonBox, height: '20px', width: '70%', marginBottom: '5px' }} />
-                <div style={{ ...styles(theme).skeletonBox, height: '20px', width: '50%', marginBottom: '5px' }} />
+                <div style={{ ...styles(theme).skeletonBox, height: '30px', width: '80%', marginBottom: '10px' } as CSSProperties} />
+                <div style={{ ...styles(theme).skeletonBox, height: '20px', width: '60%', marginBottom: '5px' } as CSSProperties} />
+                <div style={{ ...styles(theme).skeletonBox, height: '20px', width: '70%', marginBottom: '5px' } as CSSProperties} />
+                <div style={{ ...styles(theme).skeletonBox, height: '20px', width: '50%', marginBottom: '5px' } as CSSProperties} />
               </div>
             </div>
           )}
@@ -822,7 +825,7 @@ export default function HomeScreen() {
               animate={{ opacity: 1 }}
               style={styles(theme).errorContainer}
             >
-              <p style={{ ...styles(theme).error, color: '#FF1493', fontSize: 20 }}>💥 Dang it! {error} 🤦‍♂️</p>
+              <p style={{ ...styles(theme).error, color: '#FF1493', fontSize: 20 } as CSSProperties}>💥 Dang it! {error} 🤦‍♂️</p>
               <motion.button
                 style={{ ...styles(theme).copyButton, backgroundColor: '#4ECDC4' }}
                 onClick={() => setError(null)}
@@ -894,7 +897,7 @@ export default function HomeScreen() {
             </motion.button>
           </motion.div>
           {recipe && recipe.title !== 'Error' && !selectedFavorite && (
-            <RecipeCard recipe={recipe} onShare={shareRecipe} onSave={saveFavorite} />
+            <RecipeCard recipe={recipe} onShare={shareRecipe} onSave={saveFavorite} onBack={undefined} />
           )}
           {recipe && recipe.title === 'Error' && (
             <motion.div
@@ -902,7 +905,7 @@ export default function HomeScreen() {
               animate={{ opacity: 1 }}
               style={styles(theme).errorContainer}
             >
-              <p style={{ ...styles(theme).error, color: '#FF1493', fontSize: 20 }}>💥 Dang it! {recipe.steps[0]} 🤦‍♂️</p>
+              <p style={{ ...styles(theme).error, color: '#FF1493', fontSize: 20 } as CSSProperties}>💥 Dang it! {recipe.steps[0]} 🤦‍♂️</p>
               <motion.button
                 style={{ ...styles(theme).copyButton, backgroundColor: '#FF3D00' }}
                 onClick={() => fetchRecipe(lastRandom)}
@@ -927,14 +930,14 @@ export default function HomeScreen() {
           )}
           {showFavorites && favorites.length > 0 && <FavoritesList />}
           {selectedFavorite && (
-            <RecipeCard recipe={selectedFavorite} onShare={shareRecipe} onBack={() => setSelectedFavorite(null)} />
+            <RecipeCard recipe={selectedFavorite} onShare={shareRecipe} onSave={undefined} onBack={() => setSelectedFavorite(null)} />
           )}
           {showCartModal && (
-            <div style={styles(theme).modalOverlay}>
-              <div style={styles(theme).modalContent}>
+            <div style={styles(theme).modalOverlay as CSSProperties}>
+              <div style={styles(theme).modalContent as CSSProperties}>
                 <img src="/assets/fallback.png" alt="Fallback" style={styles(theme).modalImage} />
-                <p style={styles(theme).modalText}>Coming Soon</p>
-                <p style={styles(theme).modalSubText}>This feature is cookin’ and ain’t ready yet!</p>
+                <p style={styles(theme).modalText as CSSProperties}>Coming Soon</p>
+                <p style={styles(theme).modalSubText as CSSProperties}>This feature is cookin’ and ain’t ready yet!</p>
                 <motion.button
                   style={styles(theme).modalButton}
                   onClick={() => setShowCartModal(false)}
@@ -950,9 +953,9 @@ export default function HomeScreen() {
           )}
           <AffiliateSection />
           <div style={styles(theme).footer}>
-            <div style={styles(theme).footerContainer}>
+            <div style={styles(theme).footerContainer as CSSProperties}>
               <img src="/assets/gt.png" alt="Logo" style={styles(theme).footerLogo} />
-              <div style={styles(theme).footerTextContainer}>
+              <div style={styles(theme).footerTextContainer as CSSProperties}>
                 <Link to="/privacy-policy" style={styles(theme).footerPrivacyText} aria-label="Privacy Policy">
                   Privacy Policy 🕵️‍♂️
                 </Link>

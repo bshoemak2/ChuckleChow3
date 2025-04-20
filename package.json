@@ -1,0 +1,7 @@
+{
+  "name": "chuckle-chow",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "cd rg_new_app && npm install && npm run build && mv dist ../build"
+  }
+}

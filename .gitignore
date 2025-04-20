@@ -16,6 +16,10 @@ rg_new_app/.env
 # Logs
 recipe_generator.log
 
-# Build output
-build/
+# Build artifacts
 web-build/
+rg_new_app/src/index_sav04192025.tsx.bak
+rg_new_app/tsconfig.node.tsbuildinfo
+rg_new_app/tsconfig.tsbuildinfo
+rg_new_app/vite.config.js
+rg_new_app/vite.config.d.ts
