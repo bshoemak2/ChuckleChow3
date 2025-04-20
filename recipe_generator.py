@@ -1,28 +1,120 @@
 import random
 import logging
-from database import get_all_recipes, get_flavor_pairs
+from database import get_all_recipes
 
+# Configure logging
 logging.basicConfig(level=logging.DEBUG)
 
-def match_predefined_recipe(ingredients, language):
+# Import constants from app.py to avoid duplication
+from app import (
+    INGREDIENT_CATEGORIES, COOKING_METHODS, METHOD_PREFERENCES,
+    UNDESIRABLE_INGREDIENTS, measurements, LIQUID_INGREDIENTS
+)
+
+def match_predefined_recipe(ingredients, language='english'):
     recipes = get_all_recipes()
-    for recipe in recipes:
-        if set(ingredients).issubset(set(recipe['ingredients'])):
-            title = recipe['title_es'] if language == 'spanish' else recipe['title_en']
-            steps = recipe['steps_es'] if language == 'spanish' else recipe['steps_en']
-            return {
-                "id": recipe['id'],
-                "title": title,
-                "ingredients": [(ing, "100g") for ing in recipe['ingredients']],
-                "steps": steps,
-                "nutrition": recipe['nutrition'],
-                "cooking_time": recipe['cooking_time'],
-                "difficulty": recipe['difficulty'],
-                "equipment": recipe.get('equipment', ["skillet"]),
-                "servings": recipe.get('servings', 2),
-                "tips": recipe.get('tips', "Season to taste!")
-            }
-    return None
+    if not recipes:
+        logging.error("No recipes found in database")
+        return None
+    
+    # Score recipes based on ingredient overlap
+    scored_recipes = [(recipe, score_recipe(recipe, ingredients)) for recipe in recipes]
+    if not scored_recipes:
+        return None
+    
+    best_recipe = max(scored_recipes, key=lambda x: x[1])[0]
+    if not best_recipe:
+        return None
+    
+    # Filter out undesirable ingredients
+    valid_ingredients = [
+        ing for ing in best_recipe['ingredients']
+        if ing not in UNDESIRABLE_INGREDIENTS
+    ]
+    if not valid_ingredients:
+        return None
+
+    # Apply proper measurements
+    recipe_ingredients = []
+    for ing in valid_ingredients:
+        meas, prep = measurements.get(ing, measurements["default"])
+        recipe_ingredients.append((ing, f"{meas}" + (f", {prep}" if prep else "")))
+
+    title = best_recipe['title_es'] if language == 'spanish' else best_recipe['title_en']
+    steps = best_recipe['steps_es'] if language == 'spanish' else best_recipe['steps_en']
+    return {
+        "id": best_recipe['id'],
+        "title": title,
+        "ingredients": recipe_ingredients,
+        "steps": steps,
+        "nutrition": best_recipe['nutrition'],
+        "cooking_time": best_recipe['cooking_time'],
+        "difficulty": best_recipe['difficulty'],
+        "equipment": best_recipe.get('equipment', ["skillet"]),
+        "servings": best_recipe.get('servings', 2),
+        "tips": best_recipe.get('tips', "Season to taste!")
+    }
+
+def score_recipe(recipe, ingredients):
+    score = 0
+    if not recipe or 'ingredients' not in recipe:
+        return 0
+    if ingredients:
+        recipe_ingredients = set()
+        if recipe['ingredients']:
+            if isinstance(recipe['ingredients'][0], (tuple, list)):
+                recipe_ingredients = {item[0] for item in recipe['ingredients']}
+            else:
+                recipe_ingredients = set(recipe['ingredients'])
+        input_ingredients = set(ingredients)
+        for input_ing in input_ingredients:
+            best_match = max([ratio(input_ing.lower(), r_ing.lower()) for r_ing in recipe_ingredients], default=0)
+            score += best_match
+    return score
+
+def ratio(a, b):
+    from difflib import SequenceMatcher
+    return SequenceMatcher(None, a, b).ratio()
+
+def generate_random_recipe(language='english'):
+    recipes = get_all_recipes()
+    if not recipes:
+        logging.error("No recipes found in database")
+        return {"error": "No recipes available in the database"}
+    
+    logging.debug(f"Retrieved {len(recipes)} recipes from database")
+    # Filter out recipes with undesirable ingredients
+    valid_recipes = [
+        r for r in recipes
+        if all(ing not in UNDESIRABLE_INGREDIENTS for ing in (r['ingredients'] if isinstance(r['ingredients'], list) else [r['ingredients']]))
+    ]
+    if not valid_recipes:
+        return None
+    
+    random_recipe = random.choice(valid_recipes)
+    logging.debug(f"Selected random recipe: {random_recipe}")
+    
+    # Apply proper measurements
+    recipe_ingredients = []
+    for ing in random_recipe['ingredients']:
+        if ing not in UNDESIRABLE_INGREDIENTS:
+            meas, prep = measurements.get(ing, measurements["default"])
+            recipe_ingredients.append((ing, f"{meas}" + (f", {prep}" if prep else "")))
+
+    title = random_recipe['title_es'] if language == 'spanish' else random_recipe['title_en']
+    steps = random_recipe['steps_es'] if language == 'spanish' else random_recipe['steps_en']
+    return {
+        "id": random_recipe.get('id', 0),
+        "title": title,
+        "ingredients": recipe_ingredients,
+        "steps": steps,
+        "nutrition": random_recipe.get('nutrition', {"calories": 0, "protein": 0, "fat": 0}),
+        "cooking_time": random_recipe.get('cooking_time', 30),
+        "difficulty": random_recipe.get('difficulty', 'medium'),
+        "equipment": random_recipe.get('equipment', ["skillet"]),
+        "servings": random_recipe.get('servings', 2),
+        "tips": random_recipe.get('tips', "Season to taste for best results!")
+    }
 
 def generate_dynamic_recipe(ingredients, preferences):
     language = preferences.get('language', 'english').lower()
@@ -46,69 +138,56 @@ def generate_dynamic_recipe(ingredients, preferences):
             "tips": "Add ingredients to start cooking!"
         }
 
-    main = ingredients[0].lower()
-    used_extras = [i.lower() for i in ingredients[1:]] if len(ingredients) > 1 else []
+    # Filter valid ingredients
+    valid_ingredients = []
+    all_valid_ingredients = {item['name'] for items in INGREDIENT_CATEGORIES.values() for item in items}
+    for ing in ingredients:
+        if ing in all_valid_ingredients and ing not in UNDESIRABLE_INGREDIENTS:
+            valid_ingredients.append(ing)
+    ingredients = valid_ingredients[:3]  # Limit to 3 ingredients
 
-    # Assign realistic quantities
-    all_ingredients = [(main, "200g")] + [(extra, "50g") for extra in used_extras]
-    title_en = f"{main.capitalize()} {' '.join([e.capitalize() for e in used_extras]) + ' ' if used_extras else ''}Delight"
-    title_es = f"{main.capitalize()} {' '.join([e.capitalize() for e in used_extras]) + ' ' if used_extras else ''}Delicia"
+    if not ingredients:
+        title = "Invalid Ingredients" if language == 'english' else "Ingredientes Inválidos"
+        steps = ["Please provide valid ingredients!" if language == 'english' else "¡Por favor proporciona ingredientes válidos!"]
+        return {
+            "title": title,
+            "ingredients": [],
+            "steps": steps,
+            "nutrition": {"calories": 0, "protein": 0, "fat": 0},
+            "cooking_time": 0,
+            "difficulty": "N/A",
+            "equipment": [],
+            "servings": 0,
+            "tips": "Check ingredient names and try again!"
+        }
 
-    # Base cooking times and techniques
-    cooking_times = {
-        "chicken": 10, "beef": 12, "tofu": 8, "shrimp": 5, "bacon": 6, "egg": 3,
-        "rice": 20, "potatoes": 25, "onion": 5, "garlic": 2, "tomatoes": 3
-    }
-    total_time = cooking_times.get(main, 10) + sum(cooking_times.get(e, 5) for e in used_extras)
+    # Determine primary category
+    primary_category = "vegetables"
+    for ing in ingredients:
+        for cat, items in INGREDIENT_CATEGORIES.items():
+            if ing in [item['name'] for item in items]:
+                primary_category = cat
+                break
+        if primary_category != "vegetables":
+            break
 
-    # Detailed steps tailored to ingredients
-    steps_en = [
-        f"Prep: Trim and cut 200g {main} into bite-sized pieces{' and finely chop ' + ', '.join([f'50g {e}' for e in used_extras]) if used_extras else ''}.",
-        f"Heat 2 tbsp {'olive oil' if diet != 'vegan' else 'coconut oil'} in a skillet over medium-high heat."
-    ]
-    if main in ["rice", "potatoes"]:
-        steps_en.append(f"Cook 200g {main} separately: boil in salted water for {cooking_times.get(main, 20)} minutes until tender, then drain.")
-    else:
-        steps_en.append(f"Add {main} to the skillet and sauté for {cooking_times.get(main, 10)} minutes until cooked through and golden.")
+    # Select cooking method
+    method = random.choice(COOKING_METHODS.get(primary_category, ["Bake"]))
+    for ing in ingredients:
+        if ing in METHOD_PREFERENCES:
+            method = random.choice(METHOD_PREFERENCES[ing] + [method])
 
-    if used_extras:
-        extra_steps = []
-        for extra in used_extras:
-            if extra in ["rice", "potatoes"]:
-                extra_steps.append(f"Cook 50g {extra} separately: boil in salted water for {cooking_times.get(extra, 20)} minutes until tender, then drain.")
-            else:
-                extra_steps.append(f"Add 50g {extra} and cook for {cooking_times.get(extra, 5)} minutes until tender.")
-        steps_en.extend(extra_steps)
-        steps_en.append(f"Combine {main} {'and ' + ', '.join([f'50g {e}' for e in used_extras]) if len(used_extras) > 1 else f'and 50g {used_extras[0]}' if used_extras else ''} in the skillet.")
-    
-    steps_en.extend([
-        "Season with 1 tsp salt, 1 tsp ground pepper, and 1/2 tsp of your preferred spice (e.g., paprika).",
-        "Serve hot with a side of your choice (e.g., bread or salad). Tip: Garnish with fresh herbs for extra flavor!"
-    ])
+    # Generate ingredients with proper measurements
+    recipe_ingredients = []
+    for ing in ingredients:
+        meas, prep = measurements.get(ing, measurements["default"])
+        recipe_ingredients.append((ing, f"{meas}" + (f", {prep}" if prep else "")))
+    recipe_ingredients.append(("olive oil", "1 tbsp, for cooking"))
 
-    steps_es = [
-        f"Prepara: Corta 200g de {main} en trozos pequeños{' y pica finamente ' + ', '.join([f'50g de {e}' for e in used_extras]) if used_extras else ''}.",
-        f"Calienta 2 cucharadas de {'aceite de oliva' if diet != 'vegan' else 'aceite de coco'} en una sartén a fuego medio-alto."
-    ]
-    if main in ["rice", "potatoes"]:
-        steps_es.append(f"Cocina 200g de {main} por separado: hierve en agua con sal durante {cooking_times.get(main, 20)} minutos hasta que esté tierno, luego escurre.")
-    else:
-        steps_es.append(f"Añade {main} a la sartén y saltea por {cooking_times.get(main, 10)} minutos hasta que esté cocido y dorado.")
-
-    if used_extras:
-        extra_steps = []
-        for extra in used_extras:
-            if extra in ["rice", "potatoes"]:
-                extra_steps.append(f"Cocina 50g de {extra} por separado: hierve en agua con sal durante {cooking_times.get(extra, 20)} minutos hasta que esté tierno, luego escurre.")
-            else:
-                extra_steps.append(f"Añade 50g de {extra} y cocina por {cooking_times.get(extra, 5)} minutos hasta que esté tierno.")
-        steps_es.extend(extra_steps)
-        steps_es.append(f"Combina {main} {'y ' + ', '.join([f'50g de {e}' for e in used_extras]) if len(used_extras) > 1 else f'y 50g de {used_extras[0]}' if used_extras else ''} en la sartén.")
-    
-    steps_es.extend([
-        "Sazona con 1 cucharadita de sal, 1 cucharadita de pimienta molida y 1/2 cucharadita de tu especia preferida (p.ej., pimentón).",
-        "Sirve caliente con un acompañamiento de tu elección (p.ej., pan o ensalada). ¡Consejo: Decora con hierbas frescas para más sabor!"
-    ])
+    # Generate title
+    title_items = [ing.capitalize() for ing in ingredients[:2]]
+    title_en = f"{', '.join(title_items)} Delight"
+    title_es = f"{', '.join(title_items)} Delicia"
 
     # Style adjustments
     style_adjustments = {
@@ -120,68 +199,88 @@ def generate_dynamic_recipe(ingredients, preferences):
         "french": ("French", "Francés", "1 tsp butter", "1 tsp tarragon, 2 tbsp white wine"),
         "southern": ("Southern", "Sureño", "1 tsp smoked paprika", "1 tsp garlic powder, pinch of cayenne")
     }
+    extra_seasoning = ""
     if style in style_adjustments:
         prefix_en, prefix_es, oil_add, season = style_adjustments[style]
         title_en = f"{prefix_en} {title_en}"
         title_es = f"{prefix_es} {title_es}"
-        steps_en[1] = f"Heat 2 tbsp {'olive oil' if diet != 'vegan' else 'coconut oil'} in a skillet over medium-high heat and add {oil_add}."
-        steps_en[-2] = f"Season with 1 tsp salt, 1 tsp ground pepper, and {season}."
-        steps_es[1] = f"Calienta 2 cucharadas de {'aceite de oliva' if diet != 'vegan' else 'aceite de coco'} en una sartén a fuego medio-alto y añade {oil_add}."
-        steps_es[-2] = f"Sazona con 1 cucharadita de sal, 1 cucharadita de pimienta molida y {season}."
+        extra_seasoning = season
 
-    # Nutrition based on rough estimates
-    nutrition_base = {
-        "chicken": {"calories": 165, "protein": 31, "fat": 3.6},
-        "rice": {"calories": 130, "protein": 2.7, "fat": 0.3},
-        "tofu": {"calories": 76, "protein": 8, "fat": 4.8},
-        "bacon": {"calories": 541, "protein": 37, "fat": 42},
-        "egg": {"calories": 68, "protein": 6, "fat": 5}
-    }
+    # Generate steps
+    heat = "medium heat"
+    time = "10-15 minutes"
+    if method in ["Grill", "Fry", "Sauté"]:
+        heat = "medium-high heat"
+        time = f"{8 + len(ingredients) * 2}-{12 + len(ingredients) * 2} minutes"
+    elif method in ["Bake", "Roast"]:
+        heat = "400°F oven"
+        time = f"{15 + len(ingredients) * 3}-{20 + len(ingredients) * 3} minutes"
+    elif method == "Steam":
+        heat = "boiling water"
+        time = "5-10 minutes"
+    elif method == "Simmer":
+        heat = "low heat"
+        time = "10-15 minutes"
+
+    oil = "olive oil" if diet != "vegan" else "coconut oil"
+    steps_en = [
+        f"Prep: Trim and cut {', '.join([f'{meas} {ing}' for ing, meas in recipe_ingredients[:-1]])} into bite-sized pieces.",
+        f"Heat 1 tbsp {oil} in a skillet over {heat}."
+    ]
+    steps_es = [
+        f"Prepara: Corta {', '.join([f'{meas} de {ing}' for ing, meas in recipe_ingredients[:-1]])} en trozos pequeños.",
+        f"Calienta 1 cucharada de {'aceite de oliva' if diet != 'vegan' else 'aceite de coco'} en una sartén a {heat}."
+    ]
+
+    for i, (ing, meas) in enumerate(recipe_ingredients[:-1]):
+        if ing in LIQUID_INGREDIENTS:
+            steps_en.append(f"Add {meas} {ing} and cook for 2 minutes to blend flavors.")
+            steps_es.append(f"Añade {meas} de {ing} y cocina por 2 minutos para mezclar los sabores.")
+        else:
+            steps_en.append(f"Add {meas} {ing} to the skillet and {method.lower()} for {int(time.split('-')[0]) // len(recipe_ingredients)} minutes until tender.")
+            steps_es.append(f"Añade {meas} de {ing} a la sartén y {method.lower()} por {int(time.split('-')[0]) // len(recipe_ingredients)} minutos hasta que esté tierno.")
+
+    steps_en.extend([
+        f"Combine all ingredients in the skillet.",
+        f"Season with 1 tsp salt, 1 tsp ground pepper, and {extra_seasoning or '1/2 tsp of your preferred spice (e.g., paprika)'}."
+        if extra_seasoning else f"Season with 1 tsp salt, 1 tsp ground pepper, and 1/2 tsp of your preferred spice (e.g., paprika).",
+        f"Serve hot with a side of your choice (e.g., bread or salad). Tip: Garnish with fresh herbs for extra flavor!"
+    ])
+    steps_es.extend([
+        f"Combina todos los ingredientes en la sartén.",
+        f"Sazona con 1 cucharadita de sal, 1 cucharadita de pimienta molida y {extra_seasoning or '1/2 cucharadita de tu especia preferida (p.ej., pimentón)'}.",
+        f"Sirve caliente con un acompañamiento de tu elección (p.ej., pan o ensalada). ¡Consejo: Decora con hierbas frescas para más sabor!"
+    ])
+
+    # Calculate nutrition
     nutrition = {"calories": 0, "protein": 0, "fat": 0}
-    for item, qty in all_ingredients:
-        qty_g = int(qty.replace('g', ''))
-        base = nutrition_base.get(item, {"calories": 50, "protein": 2, "fat": 2})
-        scale = qty_g / 100  # Scale to 100g base
-        nutrition["calories"] += base["calories"] * scale
-        nutrition["protein"] += base["protein"] * scale
-        nutrition["fat"] += base["fat"] * scale
-
-    equipment = ["skillet", "knife", "cutting board"] + (["pot"] if any(i in ["rice", "potatoes"] for i, _ in all_ingredients) else [])
-    difficulty = "medium" if len(used_extras) > 1 else "easy"
+    nutrition_data = {
+        "meat": {"calories": 250, "protein": 25, "fat": 15},
+        "vegetables": {"calories": 50, "protein": 2, "fat": 0},
+        "fruits": {"calories": 60, "protein": 1, "fat": 0},
+        "seafood": {"calories": 200, "protein": 20, "fat": 10},
+        "dairy": {"calories": 100, "protein": 5, "fat": 8},
+        "bread_carbs": {"calories": 150, "protein": 5, "fat": 2},
+        "devil_water": {"calories": 80, "protein": 0, "fat": 0}
+    }
+    for ing in ingredients:
+        for cat, items in INGREDIENT_CATEGORIES.items():
+            if ing in [item['name'] for item in items]:
+                data = nutrition_data.get(cat, {"calories": 100, "protein": 5, "fat": 5})
+                nutrition["calories"] += data["calories"]
+                nutrition["protein"] += data["protein"]
+                nutrition["fat"] += data["fat"]
+                break
+    nutrition["calories"] = max(100, nutrition["calories"])
 
     return {
         "title": title_es if language == 'spanish' else title_en,
-        "ingredients": all_ingredients,
+        "ingredients": recipe_ingredients,
         "steps": steps_es if language == 'spanish' else steps_en,
         "nutrition": nutrition,
-        "cooking_time": total_time,
-        "difficulty": difficulty,
-        "equipment": equipment,
+        "cooking_time": int(time.split('-')[1].split()[0]),
+        "difficulty": "medium" if len(ingredients) > 2 else "easy",
+        "equipment": ["skillet", "knife", "cutting board"],
         "servings": 2,
         "tips": "Adjust cooking times based on your stove!"
-    }
-
-def generate_random_recipe(language):
-    recipes = get_all_recipes()
-    if not recipes:
-        logging.error("No recipes found in database")
-        return {"error": "No recipes available in the database"}
-    
-    logging.debug(f"Retrieved {len(recipes)} recipes from database")
-    random_recipe = random.choice(recipes)
-    logging.debug(f"Selected random recipe: {random_recipe}")
-    
-    title = random_recipe['title_es'] if language == 'spanish' else random_recipe['title_en']
-    steps = random_recipe['steps_es'] if language == 'spanish' else random_recipe['steps_en']
-    return {
-        "id": random_recipe.get('id', 0),
-        "title": title,
-        "ingredients": [(ing, "100g") for ing in random_recipe.get('ingredients', [])],
-        "steps": steps,
-        "nutrition": random_recipe.get('nutrition', {"calories": 0, "protein": 0, "fat": 0}),
-        "cooking_time": random_recipe.get('cooking_time', 30),
-        "difficulty": random_recipe.get('difficulty', 'medium'),
-        "equipment": random_recipe.get('equipment', ["skillet"]),
-        "servings": random_recipe.get('servings', 2),
-        "tips": random_recipe.get('tips', "Season to taste for best results!")
     }
