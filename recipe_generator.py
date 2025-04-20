@@ -17,28 +17,30 @@ def match_predefined_recipe(ingredients, language='english'):
         logging.error("No recipes found in database")
         return None
     
-    # Score recipes based on ingredient overlap
+    # Score recipes based on exact ingredient matches
     scored_recipes = [(recipe, score_recipe(recipe, ingredients)) for recipe in recipes]
     if not scored_recipes:
         return None
     
-    best_recipe = max(scored_recipes, key=lambda x: x[1])[0]
-    if not best_recipe:
+    # Filter recipes with undesirable ingredients
+    valid_scored_recipes = [
+        (recipe, score) for recipe, score in scored_recipes
+        if all(ing not in UNDESIRABLE_INGREDIENTS for ing in (recipe['ingredients'] if isinstance(recipe['ingredients'], list) else [recipe['ingredients']]))
+    ]
+    if not valid_scored_recipes:
         return None
     
-    # Filter out undesirable ingredients
-    valid_ingredients = [
-        ing for ing in best_recipe['ingredients']
-        if ing not in UNDESIRABLE_INGREDIENTS
-    ]
-    if not valid_ingredients:
+    # Select the best match with a minimum score threshold
+    best_recipe, best_score = max(valid_scored_recipes, key=lambda x: x[1])
+    if best_score < 0.5:  # Require at least one exact match
         return None
 
     # Apply proper measurements
     recipe_ingredients = []
-    for ing in valid_ingredients:
-        meas, prep = measurements.get(ing, measurements["default"])
-        recipe_ingredients.append((ing, f"{meas}" + (f", {prep}" if prep else "")))
+    for ing in best_recipe['ingredients']:
+        if ing not in UNDESIRABLE_INGREDIENTS:
+            meas, prep = measurements.get(ing, measurements["default"])
+            recipe_ingredients.append((ing, f"{meas}" + (f", {prep}" if prep else "")))
 
     title = best_recipe['title_es'] if language == 'spanish' else best_recipe['title_en']
     steps = best_recipe['steps_es'] if language == 'spanish' else best_recipe['steps_en']
@@ -67,9 +69,14 @@ def score_recipe(recipe, ingredients):
             else:
                 recipe_ingredients = set(recipe['ingredients'])
         input_ingredients = set(ingredients)
+        # Exact matches score higher
+        exact_matches = len(input_ingredients.intersection(recipe_ingredients))
+        score += exact_matches * 1.0  # 1 point per exact match
+        # Partial matches score lower
         for input_ing in input_ingredients:
-            best_match = max([ratio(input_ing.lower(), r_ing.lower()) for r_ing in recipe_ingredients], default=0)
-            score += best_match
+            if input_ing not in recipe_ingredients:
+                best_match = max([ratio(input_ing.lower(), r_ing.lower()) for r_ing in recipe_ingredients], default=0)
+                score += best_match * 0.2  # 0.2 points for partial matches
     return score
 
 def ratio(a, b):
@@ -171,11 +178,12 @@ def generate_dynamic_recipe(ingredients, preferences):
         if primary_category != "vegetables":
             break
 
-    # Select cooking method
+    # Select cooking method with preference for METHOD_PREFERENCES
     method = random.choice(COOKING_METHODS.get(primary_category, ["Bake"]))
     for ing in ingredients:
         if ing in METHOD_PREFERENCES:
-            method = random.choice(METHOD_PREFERENCES[ing] + [method])
+            method = random.choice(METHOD_PREFERENCES[ing])  # Prefer specified method
+            break
 
     # Generate ingredients with proper measurements
     recipe_ingredients = []
@@ -243,7 +251,9 @@ def generate_dynamic_recipe(ingredients, preferences):
     steps_en.extend([
         f"Combine all ingredients in the skillet.",
         f"Season with 1 tsp salt, 1 tsp ground pepper, and {extra_seasoning or '1/2 tsp of your preferred spice (e.g., paprika)'}."
-        if extra_seasoning else f"Season with 1 tsp salt, 1 tsp ground pepper, and 1/2 tsp of your preferred spice (e.g., paprika).",
+        if extra_seasoning else f"Season with 1 tsp salt, 1 tsp ground pepper, and 1/2 tsp
+
+System: of your preferred spice (e.g., paprika).",
         f"Serve hot with a side of your choice (e.g., bread or salad). Tip: Garnish with fresh herbs for extra flavor!"
     ])
     steps_es.extend([

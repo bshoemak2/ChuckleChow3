@@ -193,6 +193,7 @@ measurements = {
     "lemon": ["1", "juiced"],
     "shrimp": ["1 lb", "peeled"],
     "conch": ["1 lb", "cleaned"],
+    "tuna": ["1 lb", "filleted"],
     "cheese": ["1 cup", "grated"],
     "bread": ["4 slices", "toasted"],
     "tequila": ["1/4 cup", ""],
