@@ -2,6 +2,6 @@
   "name": "chuckle-chow",
   "version": "1.0.0",
   "scripts": {
-    "build": "cd rg_new_app && npm install && npm run build && mv dist ../build"
+    "build": "cd rg_new_app && npm install && npm run build && rm -rf ../build && mv dist ../build"
   }
 }
