@@ -1,0 +1,4 @@
+* text=auto
+build/*.html text eol=lf
+build/assets/*.css text eol=lf
+build/assets/*.js text eol=lf
