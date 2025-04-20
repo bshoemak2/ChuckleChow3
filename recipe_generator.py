@@ -221,13 +221,13 @@ def generate_dynamic_recipe(ingredients, preferences):
             steps_en.append(f"Add {meas} {ing} and cook for 2 minutes to blend flavors.")
             steps_es.append(f"Añade {meas} de {ing} y cocina por 2 minutos para mezclar los sabores.")
         else:
-            steps_en.append(f"Add {meas} {ing} to the skillet and {method.lower()} for {int(time.split('-')[0]) // len(recipe_ingredients)} minutes until tender.")
-            steps_es.append(f"Añade {meas} de {ing} a la sartén y {method.lower()} por {int(time.split('-')[0]) // len(recipe_ingredients)} minutos hasta que esté tierno.")
+            steps_en.append(f"Add {meas} {ing} to the skillet and {method.lower()} for {int(time.split('-')[0]) // max(1, len(recipe_ingredients)-1)} minutes until tender.")
+            steps_es.append(f"Añade {meas} de {ing} a la sartén y {method.lower()} por {int(time.split('-')[0]) // max(1, len(recipe_ingredients)-1)} minutos hasta que esté tierno.")
 
     steps_en.extend([
         f"Combine all ingredients in the skillet.",
         f"Season with 1 tsp salt, 1 tsp ground pepper, and {extra_seasoning or '1/2 tsp of your preferred spice (e.g., paprika)'}.",
-        f"Serve hot with a the side of your choice (e.g., bread or salad). Tip: Garnish with fresh herbs for extra flavor!"
+        f"Serve hot with the side of your choice (e.g., bread or salad). Tip: Garnish with fresh herbs for extra flavor!"
     ])
     steps_es.extend([
         f"Combina todos los ingredientes en la sartén.",

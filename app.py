@@ -284,9 +284,9 @@ def generate_recipe():
         category = preferences.get('category', '')
         logging.debug(f"Processing with: is_random={is_random}, style={style}, category={category}")
 
-        def process_and_enrich_recipe(recipe):
+        def process_and_enrich_recipe(recipe, input_ingredients):
             logging.debug(f"Processing recipe: {recipe}")
-            processed = process_recipe({**recipe, 'input_ingredients': ingredients})
+            processed = process_recipe({**recipe, 'input_ingredients': input_ingredients})
             if not processed or not isinstance(processed, dict):
                 logging.warning("process_recipe returned invalid data; using fallback")
                 processed = {
@@ -303,17 +303,14 @@ def generate_recipe():
 
         if is_random:
             logging.debug("Generating random recipe")
-            # Limit random recipe to 1-3 valid ingredients
-            all_ingredients = []
-            for items in INGREDIENT_CATEGORIES.values():
-                all_ingredients.extend([item['name'] for item in items if item['name'] not in UNDESIRABLE_INGREDIENTS])
-            ingredients = random.sample(all_ingredients, k=random.randint(1, 3))
             recipe = generate_random_recipe('english')
             logging.debug(f"Generated random recipe: {recipe}")
             if not recipe or not isinstance(recipe, dict):
                 logging.error(f"Invalid recipe generated: {recipe}")
                 return jsonify({"error": "Failed to generate a valid random recipe"}), 500
-            processed_recipe = process_and_enrich_recipe(recipe)
+            # Use recipe's ingredients as input_ingredients
+            recipe_ingredients = [ing[0] if isinstance(ing, (tuple, list)) else ing for ing in recipe.get('ingredients', [])]
+            processed_recipe = process_and_enrich_recipe(recipe, recipe_ingredients)
             logging.info(f"Generated random recipe: {processed_recipe.get('title', 'Unknown Recipe')}")
             return jsonify(processed_recipe)
 
@@ -322,14 +319,14 @@ def generate_recipe():
             recipe = match_predefined_recipe(ingredients, 'english')
             logging.debug(f"Match predefined recipe result: {recipe}")
             if recipe:
-                processed_recipe = process_and_enrich_recipe(recipe)
+                processed_recipe = process_and_enrich_recipe(recipe, ingredients)
                 logging.info(f"Matched predefined recipe: {processed_recipe.get('title', 'Unknown Recipe')}")
                 return jsonify(processed_recipe)
 
         logging.debug("Generating dynamic recipe")
         recipe = generate_dynamic_recipe(ingredients, preferences)
         logging.debug(f"Dynamic recipe result: {recipe}")
-        processed_recipe = process_and_enrich_recipe(recipe)
+        processed_recipe = process_and_enrich_recipe(recipe, ingredients)
         if not processed_recipe:
             logging.error(f"Failed to generate dynamic recipe: {recipe}", exc_info=True)
             return jsonify({"error": "Recipe generation flopped—blame the chef!"}), 500
