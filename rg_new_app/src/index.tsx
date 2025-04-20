@@ -75,6 +75,7 @@ export default function HomeScreen() {
       { name: 'quail', emoji: '🐦' },
     ],
     vegetables: [
+      { name: 'cauliflower', emoji: '🥦' },
       { name: 'carrot', emoji: '🥕' },
       { name: 'broccoli', emoji: '🥦' },
       { name: 'onion', emoji: '🧅' },
@@ -295,16 +296,12 @@ export default function HomeScreen() {
     }
   };
 
-  const removeFavorite = (recipeId: number, language: 'english' | 'spanish') => {
+  const removeFavorite = (recipeId: number) => {
     if (!recipeId) {
       window.alert('Cannot remove recipe: Invalid ID');
       return;
     }
-    const confirmRemoval = window.confirm(
-      language === 'english'
-        ? 'Are you sure you want to remove this recipe?'
-        : '¿Seguro que quieres eliminar esta receta?'
-    );
+    const confirmRemoval = window.confirm('Are you sure you want to remove this recipe?');
     if (confirmRemoval) {
       try {
         const idToRemove = Number(recipeId);
@@ -314,11 +311,7 @@ export default function HomeScreen() {
           setSelectedFavorite(null);
         }
         localStorage.setItem('favorites', JSON.stringify(newFavorites));
-        window.alert(
-          language === 'english'
-            ? 'Recipe removed from favorites'
-            : 'Receta eliminada de favoritos'
-        );
+        window.alert('Recipe removed from favorites');
       } catch (error) {
         console.error('Error removing favorite:', error);
         window.alert('Failed to remove favorite.');
@@ -330,11 +323,11 @@ export default function HomeScreen() {
     const currentRecipe = selectedFavorite || recipe;
     if (!currentRecipe) return;
     const shareText = currentRecipe.shareText || `${currentRecipe.title}\nIngredients: ${currentRecipe.ingredients.join(', ')}\nSteps: ${currentRecipe.steps.join('; ')}`;
-    const url = 'https://chuckle-and-chow.onrender.com/';
+    const url = 'https://chuckle-chow-backend.onrender.com/';
     const fullMessage = `Get a load of this hogwash: ${shareText}\nCheck out my app: ${url} 🤠`;
     try {
       if (platform === 'facebook') {
-        const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}"e=${encodeURIComponent(shareText)}`;
+        const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(shareText)}`;
         window.open(fbUrl, '_blank');
       } else if (platform === 'twitter') {
         const xUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(fullMessage)}`;
@@ -388,12 +381,8 @@ export default function HomeScreen() {
     setSearch('');
   };
 
-  const handleAddAllToCart = (cartUrl: string) => {
-    if (cartUrl) {
-      window.open(cartUrl, '_blank');
-    } else {
-      setShowCartModal(true);
-    }
+  const handleAddAllToCart = () => {
+    setShowCartModal(true);
   };
 
   const getRandomTip = () => chaosGearTips[Math.floor(Math.random() * chaosGearTips.length)];
@@ -467,11 +456,11 @@ export default function HomeScreen() {
               </div>
               <motion.button
                 style={styles(theme).removeButton}
-                onClick={() => removeFavorite(item.id, 'english')}
+                onClick={() => removeFavorite(item.id)}
                 whileHover={{ scale: 1.1, rotate: 3 }}
                 aria-label={`Remove ${item.title} from favorites`}
                 tabIndex={0}
-                onKeyDown={(e) => e.key === 'Enter' && removeFavorite(item.id, 'english')}
+                onKeyDown={(e) => e.key === 'Enter' && removeFavorite(item.id)}
               >
                 <span style={styles(theme).removeButtonText}>Remove ❌</span>
               </motion.button>
@@ -673,11 +662,11 @@ export default function HomeScreen() {
         </motion.button>
         <motion.button
           style={{ ...styles(theme).copyButton, backgroundColor: '#FF9900', borderColor: '#FFD700' }}
-          onClick={() => handleAddAllToCart(recipe.add_all_to_cart)}
+          onClick={handleAddAllToCart}
           whileHover={{ scale: 1.1, rotate: 3 }}
           aria-label="Add all ingredients to Amazon cart"
           tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && handleAddAllToCart(recipe.add_all_to_cart)}
+          onKeyDown={(e) => e.key === 'Enter' && handleAddAllToCart()}
         >
           <span style={styles(theme).copyButtonText}>🛒 Add All to Amazon Cart</span>
         </motion.button>
@@ -806,7 +795,7 @@ export default function HomeScreen() {
                 className="chaotic-spinner"
               />
               <p style={{ ...styles(theme).spinnerText, color: '#FF1493', fontWeight: 'bold' } as CSSProperties}>
-                🔥 Whippin’ up somethin’ nuttier than squirrel turds... 🐿️
+                🔥 Whippin’ up somethin’ nuttier than a squirrel’s stash... 🐿️
               </p>
               <div style={styles(theme).recipeCard}>
                 <div style={{ ...styles(theme).skeletonBox, height: '30px', width: '80%', marginBottom: '10px' } as CSSProperties} />
