@@ -30,9 +30,10 @@ def match_predefined_recipe(ingredients, language='english'):
     if not valid_scored_recipes:
         return None
     
-    # Select the best match with a minimum score threshold
+    # Select the best match with a higher score threshold
     best_recipe, best_score = max(valid_scored_recipes, key=lambda x: x[1])
-    if best_score < 0.5:  # Require at least one exact match
+    if best_score < len(ingredients) * 0.8:  # Require most ingredients to match
+        logging.debug(f"No suitable predefined recipe found for {ingredients}, score {best_score} too low")
         return None
 
     # Apply proper measurements
@@ -72,11 +73,11 @@ def score_recipe(recipe, ingredients):
         # Exact matches score higher
         exact_matches = len(input_ingredients.intersection(recipe_ingredients))
         score += exact_matches * 1.0  # 1 point per exact match
-        # Partial matches score lower
+        # Partial matches score lower, only if no exact match
         for input_ing in input_ingredients:
             if input_ing not in recipe_ingredients:
                 best_match = max([ratio(input_ing.lower(), r_ing.lower()) for r_ing in recipe_ingredients], default=0)
-                score += best_match * 0.2  # 0.2 points for partial matches
+                score += best_match * 0.1  # Reduced weight for partial matches
     return score
 
 def ratio(a, b):
@@ -84,44 +85,17 @@ def ratio(a, b):
     return SequenceMatcher(None, a, b).ratio()
 
 def generate_random_recipe(language='english'):
-    recipes = get_all_recipes()
-    if not recipes:
-        logging.error("No recipes found in database")
-        return {"error": "No recipes available in the database"}
+    # Generate random ingredients instead of selecting a predefined recipe
+    all_ingredients = []
+    for items in INGREDIENT_CATEGORIES.values():
+        all_ingredients.extend([item['name'] for item in items if item['name'] not in UNDESIRABLE_INGREDIENTS])
+    ingredients = random.sample(all_ingredients, k=random.randint(1, 3))
     
-    logging.debug(f"Retrieved {len(recipes)} recipes from database")
-    # Filter out recipes with undesirable ingredients
-    valid_recipes = [
-        r for r in recipes
-        if all(ing not in UNDESIRABLE_INGREDIENTS for ing in (r['ingredients'] if isinstance(r['ingredients'], list) else [r['ingredients']]))
-    ]
-    if not valid_recipes:
-        return None
-    
-    random_recipe = random.choice(valid_recipes)
-    logging.debug(f"Selected random recipe: {random_recipe}")
-    
-    # Apply proper measurements
-    recipe_ingredients = []
-    for ing in random_recipe['ingredients']:
-        if ing not in UNDESIRABLE_INGREDIENTS:
-            meas, prep = measurements.get(ing, measurements["default"])
-            recipe_ingredients.append((ing, f"{meas}" + (f", {prep}" if prep else "")))
-
-    title = random_recipe['title_es'] if language == 'spanish' else random_recipe['title_en']
-    steps = random_recipe['steps_es'] if language == 'spanish' else random_recipe['steps_en']
-    return {
-        "id": random_recipe.get('id', 0),
-        "title": title,
-        "ingredients": recipe_ingredients,
-        "steps": steps,
-        "nutrition": random_recipe.get('nutrition', {"calories": 0, "protein": 0, "fat": 0}),
-        "cooking_time": random_recipe.get('cooking_time', 30),
-        "difficulty": random_recipe.get('difficulty', 'medium'),
-        "equipment": random_recipe.get('equipment', ["skillet"]),
-        "servings": random_recipe.get('servings', 2),
-        "tips": random_recipe.get('tips', "Season to taste for best results!")
-    }
+    # Use generate_dynamic_recipe to create a recipe
+    preferences = {'language': language, 'isRandom': True}
+    recipe = generate_dynamic_recipe(ingredients, preferences)
+    logging.debug(f"Generated random recipe with ingredients: {ingredients}")
+    return recipe
 
 def generate_dynamic_recipe(ingredients, preferences):
     language = preferences.get('language', 'english').lower()
@@ -178,12 +152,14 @@ def generate_dynamic_recipe(ingredients, preferences):
         if primary_category != "vegetables":
             break
 
-    # Select cooking method with preference for METHOD_PREFERENCES
-    method = random.choice(COOKING_METHODS.get(primary_category, ["Bake"]))
+    # Select cooking method with strict adherence to METHOD_PREFERENCES
+    method = None
     for ing in ingredients:
         if ing in METHOD_PREFERENCES:
-            method = random.choice(METHOD_PREFERENCES[ing])  # Prefer specified method
+            method = random.choice(METHOD_PREFERENCES[ing])
             break
+    if not method:
+        method = random.choice(COOKING_METHODS.get(primary_category, ["Bake"]))
 
     # Generate ingredients with proper measurements
     recipe_ingredients = []
@@ -251,7 +227,7 @@ def generate_dynamic_recipe(ingredients, preferences):
     steps_en.extend([
         f"Combine all ingredients in the skillet.",
         f"Season with 1 tsp salt, 1 tsp ground pepper, and {extra_seasoning or '1/2 tsp of your preferred spice (e.g., paprika)'}.",
-        f"Serve hot with a side of your choice (e.g., bread or salad). Tip: Garnish with fresh herbs for extra flavor!"
+        f"Serve hot with a the side of your choice (e.g., bread or salad). Tip: Garnish with fresh herbs for extra flavor!"
     ])
     steps_es.extend([
         f"Combina todos los ingredientes en la sartén.",

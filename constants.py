@@ -183,6 +183,7 @@ measurements = {
     "pork": ["1 lb", "cubed"],
     "pichana": ["1 lb", "cubed"],
     "churrasco": ["1 lb", "cubed"],
+    "lamb": ["1 lb", "cubed"],
     "broccoli": ["1 head", "florets"],
     "carrot": ["2 medium", "sliced"],
     "potato": ["2 medium", "sliced"],
