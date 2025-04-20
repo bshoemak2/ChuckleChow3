@@ -5,8 +5,8 @@ from database import get_all_recipes
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 
-# Import constants from app.py to avoid duplication
-from app import (
+# Import constants from constants.py
+from constants import (
     INGREDIENT_CATEGORIES, COOKING_METHODS, METHOD_PREFERENCES,
     UNDESIRABLE_INGREDIENTS, measurements, LIQUID_INGREDIENTS
 )
