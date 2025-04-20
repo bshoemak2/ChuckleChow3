@@ -71,10 +71,8 @@ export default function HomeScreen() {
       { name: 'pichana', emoji: '🥩' },
       { name: 'churrasco', emoji: '🍖' },
       { name: 'ribeye steaks', emoji: '🍽️' },
-      { name: 'squirrel', emoji: '🐿️' },
       { name: 'rabbit', emoji: '🐰' },
       { name: 'quail', emoji: '🐦' },
-      { name: 'woodpecker', emoji: '🦜' },
     ],
     vegetables: [
       { name: 'carrot', emoji: '🥕' },
@@ -100,7 +98,6 @@ export default function HomeScreen() {
     seafood: [
       { name: 'salmon', emoji: '🐟' },
       { name: 'shrimp', emoji: '🦐' },
-      { name: 'cod', emoji: '🐠' },
       { name: 'tuna', emoji: '🐡' },
       { name: 'yellowtail snapper', emoji: '🎣' },
       { name: 'grouper', emoji: '🪸' },
@@ -466,7 +463,7 @@ export default function HomeScreen() {
                 onKeyDown={(e) => e.key === 'Enter' && setSelectedFavorite(item)}
                 aria-label={`View ${item.title}`}
               >
-                <p style={styles(theme).favItem}>🌟 {item.title} {item.rating ? `(${item.rating} ★)` : ''}</p>
+                <p style={styles(theme).favItem}>🌟 ${item.title} ${item.rating ? `(${item.rating} ★)` : ''}</p>
               </div>
               <motion.button
                 style={styles(theme).removeButton}
