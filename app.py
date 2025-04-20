@@ -80,6 +80,7 @@ CHAOS_TIPS = {
         "ground beef": "Fry it till it sizzles like a barn dance!",
         "chicken": "Grill it like you’re chasin’ a runaway hen!",
         "churrasco": "Grill it till it hollers for mercy!",
+        "pichana": "Roast it till it sings like a country ballad!",
         "default": "Grill it till the neighbors holler!"
     },
     "vegetables": {
@@ -108,6 +109,7 @@ CHAOS_TIPS = {
         "tequila": "Splash it like you’re startin’ a bar fight!",
         "moonshine": "Simmer it sneakier’n a bootlegger’s stash!",
         "beer": "Pour it like you’re toasting a hoedown!",
+        "whiskey": "Drizzle it like you’re courtin’ trouble!",
         "default": "Mix it wilder’n a saloon brawl!"
     }
 }
@@ -118,6 +120,7 @@ INGREDIENT_PAIRS = {
     "ground beef": ["onion", "cheese", "beer", "tomato"],
     "chicken": ["lemon", "butter", "rice", "garlic"],
     "pork": ["apple", "whiskey", "potato", "honey"],
+    "pichana": ["beer", "potato", "onion", "garlic"],
     "churrasco": ["beer", "potato", "onion", "garlic"],
     "salmon": ["lemon", "butter", "vodka", "dill"],
     "broccoli": ["garlic", "lemon", "olive oil", "cheese"],
@@ -135,6 +138,7 @@ METHOD_PREFERENCES = {
     "moonshine": ["Fry"],
     "beer": ["Simmer"],
     "churrasco": ["Grill"],
+    "pichana": ["Roast"],
     "broccoli": ["Roast", "Steam"],
     "carrot": ["Roast", "Sauté"],
     "potato": ["Roast", "Bake"]
@@ -238,6 +242,7 @@ AMAZON_ASINS = {
     "ground beef": "B08J4K9L2P",
     "chicken": "B07Z8J9K7L",
     "pork": "B09J8K9M2P",
+    "pichana": "B08J4K9L2P",
     "churrasco": "B08J4K9L2P",
     "broccoli": "B08X6J2N4P",
     "potato": "B08X6J2N4P",
@@ -247,7 +252,8 @@ AMAZON_ASINS = {
     "cheese": "B07X6J2N4P",
     "lemon": "B09K8J2N4P",
     "tomato": "B08X6J2N4P",
-    "beer": "B08J4K9L2P"
+    "beer": "B08J4K9L2P",
+    "whiskey": "B08J4K9L2P"
 }
 
 INGREDIENT_CATEGORIES = {
@@ -386,6 +392,7 @@ def process_recipe(recipe):
             "ground beef": ["1 lb", "ground"],
             "chicken": ["1 lb", "cut into strips"],
             "pork": ["1 lb", "cubed"],
+            "pichana": ["1 lb", "cubed"],
             "churrasco": ["1 lb", "cubed"],
             "broccoli": ["1 head", "florets"],
             "carrot": ["2 medium", "sliced"],
@@ -396,6 +403,7 @@ def process_recipe(recipe):
             "bread": ["4 slices", "toasted"],
             "tequila": ["1/4 cup", ""],
             "beer": ["1/4 cup", ""],
+            "whiskey": ["1/4 cup", ""],
             "default": ["1 unit", ""]
         }
         ingredients_list = []
@@ -446,10 +454,31 @@ def process_recipe(recipe):
 
         template = random.choice(RECIPE_TEMPLATES.get(primary_category, RECIPE_TEMPLATES["vegetables"]))
         devil_water = next((ing.split()[-1] for ing in ingredients_list if ing.split()[-1] in LIQUID_INGREDIENTS), None)
+        
+        # Format steps with fallback for devil_water
         recipe['steps'] = [
             template[0].format(ingredients=' and '.join(ingredients_list[:2]), extra=extra_text, equipment=primary_equipment),
-            template[1].format(method=method.lower(), equipment=primary_equipment, heat=heat, time=time, extra=extra_text, devil_water=devil_water or "juice", spice=spice),
-            template[2].format(**({'extra': extra_text, 'insult': insult, 'spice': spice} if '{extra}' in template[2] else {'insult': insult, 'spice': spice}))
+            template[1].format(
+                method=method.lower(),
+                equipment=primary_equipment,
+                heat=heat,
+                time=time,
+                extra=extra_text,
+                devil_water=devil_water or "juice",
+                spice=spice
+            ),
+            template[2].format(
+                **({
+                    'extra': extra_text,
+                    'insult': insult,
+                    'spice': spice,
+                    'devil_water': devil_water or "juice"
+                } if '{extra}' in template[2] else {
+                    'insult': insult,
+                    'spice': spice,
+                    'devil_water': devil_water or "juice"
+                })
+            )
         ]
         if len(template) > 3:
             recipe['steps'].insert(2, template[3].format(devil_water=devil_water or "juice", spice=spice))
