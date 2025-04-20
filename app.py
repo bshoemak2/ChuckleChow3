@@ -153,6 +153,77 @@ AMAZON_ASINS = {
     "onion": "B08J4K9L2P"       # Placeholder
 }
 
+INGREDIENT_CATEGORIES = {
+    "meat": sorted([
+        {"name": "ground beef", "category": "meat"},
+        {"name": "chicken", "category": "meat"},
+        {"name": "pork", "category": "meat"},
+        {"name": "lamb", "category": "meat"},
+        {"name": "pichana", "category": "meat"},
+        {"name": "churrasco", "category": "meat"},
+        {"name": "ribeye steaks", "category": "meat"},
+        {"name": "rabbit", "category": "meat"},
+        {"name": "quail", "category": "meat"}
+    ], key=lambda x: x["name"]),
+    "vegetables": sorted([
+        {"name": "cauliflower", "category": "vegetables"},
+        {"name": "carrot", "category": "vegetables"},
+        {"name": "broccoli", "category": "vegetables"},
+        {"name": "onion", "category": "vegetables"},
+        {"name": "potato", "category": "vegetables"},
+        {"name": "tomato", "category": "vegetables"},
+        {"name": "green beans", "category": "vegetables"},
+        {"name": "okra", "category": "vegetables"},
+        {"name": "collards", "category": "vegetables"}
+    ], key=lambda x: x["name"]),
+    "fruits": sorted([
+        {"name": "apple", "category": "fruits"},
+        {"name": "banana", "category": "fruits"},
+        {"name": "lemon", "category": "fruits"},
+        {"name": "orange", "category": "fruits"},
+        {"name": "mango", "category": "fruits"},
+        {"name": "avocado", "category": "fruits"},
+        {"name": "starfruit", "category": "fruits"},
+        {"name": "dragon fruit", "category": "fruits"},
+        {"name": "carambola", "category": "fruits"}
+    ], key=lambda x: x["name"]),
+    "seafood": sorted([
+        {"name": "salmon", "category": "seafood"},
+        {"name": "shrimp", "category": "seafood"},
+        {"name": "tuna", "category": "seafood"},
+        {"name": "yellowtail snapper", "category": "seafood"},
+        {"name": "grouper", "category": "seafood"},
+        {"name": "red snapper", "category": "seafood"},
+        {"name": "oysters", "category": "seafood"},
+        {"name": "lobster", "category": "seafood"},
+        {"name": "conch", "category": "seafood"},
+        {"name": "lionfish", "category": "seafood"},
+        {"name": "catfish", "category": "seafood"},
+        {"name": "bass", "category": "seafood"},
+        {"name": "crappie", "category": "seafood"}
+    ], key=lambda x: x["name"]),
+    "dairy": sorted([
+        {"name": "cheese", "category": "dairy"},
+        {"name": "milk", "category": "dairy"},
+        {"name": "butter", "category": "dairy"},
+        {"name": "yogurt", "category": "dairy"},
+        {"name": "eggs", "category": "dairy"}
+    ], key=lambda x: x["name"]),
+    "bread_carbs": sorted([
+        {"name": "bread", "category": "bread_carbs"},
+        {"name": "pasta", "category": "bread_carbs"},
+        {"name": "rice", "category": "bread_carbs"},
+        {"name": "tortilla", "category": "bread_carbs"}
+    ], key=lambda x: x["name"]),
+    "devil_water": sorted([
+        {"name": "beer", "category": "devil_water"},
+        {"name": "moonshine", "category": "devil_water"},
+        {"name": "whiskey", "category": "devil_water"},
+        {"name": "vodka", "category": "devil_water"},
+        {"name": "tequila", "category": "devil_water"}
+    ], key=lambda x: x["name"])
+}
+
 def score_recipe(recipe, ingredients, preferences):
     score = 0
     if not recipe or 'ingredients' not in recipe:
