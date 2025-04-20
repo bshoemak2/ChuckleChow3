@@ -225,3 +225,97 @@ AMAZON_ASINS = {
     "tequila": "B08J4K9L2P",
     "vodka": "B08J4K9L2P"
 }
+
+RECIPE_TEMPLATES = {
+    "meat": [
+        [
+            "Prep: Season {ingredients} with {extra}—rub it like you mean it!",
+            "Cook: {method} in {equipment} over {heat} for {time}, flippin’ like a rodeo clown.",
+            "Serve: Plate with a side of spuds or cornbread. {insult}"
+        ],
+        [
+            "Prep: Marinate {ingredients} in {extra} for 15 minutes—let it soak up the chaos!",
+            "Cook: {method} in {equipment} over {heat} for {time}, stirrin’ like you’re mixin’ moonshine.",
+            "Combine: Add a splash of {devil_water} for a kick, cook 2 minutes.",
+            "Serve: Dish up with rice or greens. {insult}"
+        ]
+    ],
+    "vegetables": [
+        [
+            "Prep: Preheat oven to 400°F (or medium-high skillet for sauté). Chop {ingredients} into bite-sized chunks—mind yer fingers!",
+            "Cook: {method} with {extra} in {equipment} at {heat} for {time}, tossin’ like a salad at a hoedown.",
+            "Serve: Dish up with a sprinkle of herbs or a drizzle of lemon. {insult}"
+        ],
+        [
+            "Prep: Wash and chop {ingredients}—cry like you’re watchin’ a country ballad if it’s onions!",
+            "Cook: {method} in {equipment} with {extra} at {heat} for {time}, stirrin’ gentle-like.",
+            "Finish: Toss with a pinch of {spice} for extra zing.",
+            "Serve: Pair with bread or a protein. {insult}"
+        ]
+    ],
+    "fruits": [
+        [
+            "Prep: Slice {ingredients}—don’t let ‘em roll away!",
+            "Cook: {method} with {extra} in {equipment} over {heat} for {time}, stirrin’ gentle-like.",
+            "Serve: Serve warm with a dollop of yogurt or a splash of devil water. {insult}"
+        ],
+        [
+            "Prep: Peel and chop {ingredients}—make it quick like a jackrabbit!",
+            "Cook: {method} in {equipment} with {extra} over {heat} for {time}, simmerin’ low and slow.",
+            "Finish: Dust with a pinch of cinnamon or sugar.",
+            "Serve: Top with whipped cream or ice cream. {insult}"
+        ]
+    ],
+    "seafood": [
+        [
+            "Prep: Clean and chop {ingredients}—watch them fishy bits!",
+            "Cook: {method} with {extra} in {equipment} over {heat} for {time}, flippin’ careful-like.",
+            "Serve: Plate with a wedge of lemon or a side of rice. {insult}"
+        ],
+        [
+            "Prep: Pat dry {ingredients}—keep it cleaner’n a preacher’s plate!",
+            "Cook: {method} in {equipment} with {extra} over {heat} for {time}, searin’ till golden.",
+            "Finish: Drizzle with a splash of {devil_water} or herb butter.",
+            "Serve: Serve hot with veggies or cornbread. {insult}"
+        ]
+    ],
+    "dairy": [
+        [
+            "Prep: Measure {ingredients}—don’t spill the milk!",
+            "Cook: {method} with {extra} in {equipment} over {heat} for {time}, stirrin’ smooth.",
+            "Serve: Spread on bread or mix with carbs for a creamy delight. {insult}"
+        ],
+        [
+            "Prep: Grate or melt {ingredients}—get it gooey like a summer night!",
+            "Cook: {method} in {equipment} with {extra} over {heat} for {time}, blendin’ till silky.",
+            "Finish: Sprinkle with a pinch of {spice} for flair.",
+            "Serve: Pair with pasta or veggies. {insult}"
+        ]
+    ],
+    "bread_carbs": [
+        [
+            "Prep: Prep {ingredients}—slice or cook as needed.",
+            "Cook: {method} with {extra} in {equipment} over {heat} for {time}, toasty-like.",
+            "Serve: Serve hot with butter or a heap of veggies. {insult}"
+        ],
+        [
+            "Prep: Boil or prep {ingredients}—don’t let it stick like a bad joke!",
+            "Cook: {method} in {equipment} with {extra} over {heat} for {time}, stirrin’ steady.",
+            "Finish: Toss with a drizzle of olive oil or sauce.",
+            "Serve: Top with cheese or protein. {insult}"
+        ]
+    ],
+    "devil_water": [
+        [
+            "Prep: Measure {ingredients}—don’t drink it yet!",
+            "Cook: {method} with {extra} in {equipment} over {heat} for {time}, mixin’ like a bar brawl.",
+            "Serve: Sip with a side of grit or pour over dessert. {insult}"
+        ],
+        [
+            "Prep: Chill {ingredients}—keep it cooler’n a moonlit night!",
+            "Cook: {method} in {equipment} with {extra} over {heat} for {time}, shakin’ like a saloon dance.",
+            "Finish: Garnish with a twist of lemon or a sprig of mint.",
+            "Serve: Serve in a mason jar with a tall tale. {insult}"
+        ]
+    ]
+}
