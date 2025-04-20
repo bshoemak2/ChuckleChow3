@@ -87,18 +87,22 @@ CHAOS_TIPS = {
         "broccoli": "Roast it till it begs for mercy!",
         "carrot": "Sauté like you’re stirrin’ up trouble!",
         "potato": "Roast ‘em till they’re crisp as a banjo strum!",
+        "green beans": "Sauté ‘em till they snap like a whip!",
         "default": "Roast ‘em till they sing like a banjo!"
     },
     "fruits": {
         "apple": "Bake it sweeter’n a moonshine pie!",
+        "lemon": "Squeeze it till it cries for mercy!",
         "default": "Bake ‘em sweeter’n a moonshine kiss!"
     },
     "seafood": {
         "shrimp": "Sauté till they pop like firecrackers!",
+        "conch": "Sauté till it’s tender as a sea shanty!",
         "default": "Grill ‘em till they flop like a fish outta water!"
     },
     "dairy": {
         "cheese": "Melt it smoother’n a country crooner!",
+        "milk": "Simmer it gentle-like, don’t let it curdle!",
         "default": "Melt it smoother’n a barnyard ballad!"
     },
     "bread_carbs": {
@@ -126,11 +130,14 @@ INGREDIENT_PAIRS = {
     "broccoli": ["garlic", "lemon", "olive oil", "cheese"],
     "carrot": ["butter", "honey", "thyme", "ginger"],
     "potato": ["churrasco", "cheese", "beer", "butter"],
+    "green beans": ["garlic", "butter", "lemon", "cheese"],
     "moonshine": ["pork", "chicken", "apple", "peach"],
     "tequila": ["shrimp", "avocado", "tomato", "lime"],
     "beer": ["churrasco", "potato", "onion", "cheese"],
     "cheese": ["broccoli", "pasta", "tomato", "bread"],
-    "apple": ["pork", "whiskey", "cinnamon", "butter"]
+    "apple": ["pork", "whiskey", "cinnamon", "butter"],
+    "lemon": ["shrimp", "chicken", "vodka", "garlic"],
+    "conch": ["lemon", "butter", "vodka", "garlic"]
 }
 
 METHOD_PREFERENCES = {
@@ -141,7 +148,10 @@ METHOD_PREFERENCES = {
     "pichana": ["Roast"],
     "broccoli": ["Roast", "Steam"],
     "carrot": ["Roast", "Sauté"],
-    "potato": ["Roast", "Bake"]
+    "potato": ["Roast", "Bake"],
+    "green beans": ["Sauté", "Steam"],
+    "lemon": ["Simmer"],
+    "conch": ["Sauté"]
 }
 
 RECIPE_TEMPLATES = {
@@ -186,7 +196,7 @@ RECIPE_TEMPLATES = {
     ],
     "seafood": [
         [
-            "Prep: Clean {ingredients}—watch them fishy bits!",
+            "Prep: Clean and chop {ingredients}—watch them fishy bits!",
             "Cook: {method} with {extra} in {equipment} over {heat} for {time}, flippin’ careful-like.",
             "Serve: Plate with a wedge of lemon or a side of rice. {insult}"
         ],
@@ -246,15 +256,23 @@ AMAZON_ASINS = {
     "churrasco": "B08J4K9L2P",
     "broccoli": "B08X6J2N4P",
     "potato": "B08X6J2N4P",
+    "green beans": "B08X6J2N4P",
+    "okra": "B08X6J2N4P",
+    "tomato": "B08X6J2N4P",
+    "lemon": "B09K8J2N4P",
+    "conch": "B08J4K9L2P",
     "oil": "B00N3W8W8W",
     "moonshine": "B08J4K9L2P",
     "onion": "B08J4K9L2P",
     "cheese": "B07X6J2N4P",
-    "lemon": "B09K8J2N4P",
-    "tomato": "B08X6J2N4P",
     "beer": "B08J4K9L2P",
-    "whiskey": "B08J4K9L2P"
+    "whiskey": "B08J4K9L2P",
+    "tequila": "B08J4K9L2P",
+    "vodka": "B08J4K9L2P"
 }
+
+# Filter undesirable ingredients
+UNDESIRABLE_INGREDIENTS = ["squirrel", "rabbit", "quail"]
 
 INGREDIENT_CATEGORIES = {
     "meat": sorted([
@@ -264,9 +282,7 @@ INGREDIENT_CATEGORIES = {
         {"name": "lamb", "category": "meat"},
         {"name": "pichana", "category": "meat"},
         {"name": "churrasco", "category": "meat"},
-        {"name": "ribeye steaks", "category": "meat"},
-        {"name": "rabbit", "category": "meat"},
-        {"name": "quail", "category": "meat"}
+        {"name": "ribeye steaks", "category": "meat"}
     ], key=lambda x: x["name"]),
     "vegetables": sorted([
         {"name": "cauliflower", "category": "vegetables"},
@@ -355,13 +371,13 @@ def process_recipe(recipe):
         if not input_ingredients and 'ingredients' in recipe:
             input_ingredients = [ing[0] if isinstance(ing, (tuple, list)) else ing for ing in recipe['ingredients']]
         
-        # Filter out invalid ingredients
+        # Filter out invalid and undesirable ingredients
         valid_ingredients = []
         all_valid_ingredients = {item['name'] for items in INGREDIENT_CATEGORIES.values() for item in items}
         for ing in input_ingredients:
             if isinstance(ing, (tuple, list)):
                 ing = ing[0]
-            if ing in all_valid_ingredients:
+            if ing in all_valid_ingredients and ing not in UNDESIRABLE_INGREDIENTS:
                 valid_ingredients.append(ing)
         input_ingredients = valid_ingredients or input_ingredients[:2]  # Fallback to first 2 if none valid
 
@@ -397,13 +413,20 @@ def process_recipe(recipe):
             "broccoli": ["1 head", "florets"],
             "carrot": ["2 medium", "sliced"],
             "potato": ["2 medium", "sliced"],
+            "green beans": ["1 cup", "trimmed"],
+            "okra": ["1 cup", "sliced"],
+            "tomato": ["2 medium", "diced"],
             "apple": ["2 medium", "sliced"],
+            "lemon": ["1", "juiced"],
             "shrimp": ["1 lb", "peeled"],
+            "conch": ["1 lb", "cleaned"],
             "cheese": ["1 cup", "grated"],
             "bread": ["4 slices", "toasted"],
             "tequila": ["1/4 cup", ""],
             "beer": ["1/4 cup", ""],
             "whiskey": ["1/4 cup", ""],
+            "moonshine": ["1/4 cup", ""],
+            "vodka": ["1/4 cup", ""],
             "default": ["1 unit", ""]
         }
         ingredients_list = []
@@ -455,7 +478,7 @@ def process_recipe(recipe):
         template = random.choice(RECIPE_TEMPLATES.get(primary_category, RECIPE_TEMPLATES["vegetables"]))
         devil_water = next((ing.split()[-1] for ing in ingredients_list if ing.split()[-1] in LIQUID_INGREDIENTS), None)
         
-        # Format steps with fallback for devil_water
+        # Format steps with fallback for devil_water and insult
         recipe['steps'] = [
             template[0].format(ingredients=' and '.join(ingredients_list[:2]), extra=extra_text, equipment=primary_equipment),
             template[1].format(
@@ -481,7 +504,11 @@ def process_recipe(recipe):
             )
         ]
         if len(template) > 3:
-            recipe['steps'].insert(2, template[3].format(devil_water=devil_water or "juice", spice=spice))
+            recipe['steps'].insert(2, template[3].format(
+                devil_water=devil_water or "juice",
+                spice=spice,
+                insult=insult
+            ))
         if devil_water:
             recipe['steps'].append(f"Sip or drizzle that {devil_water} for extra chaos!")
 
@@ -615,7 +642,7 @@ def generate_recipe():
             # Limit random recipe to 1-3 valid ingredients
             all_ingredients = []
             for items in INGREDIENT_CATEGORIES.values():
-                all_ingredients.extend([item['name'] for item in items])
+                all_ingredients.extend([item['name'] for item in items if item['name'] not in UNDESIRABLE_INGREDIENTS])
             ingredients = random.sample(all_ingredients, k=random.randint(1, 3))
             recipe = generate_random_recipe('english')
             logging.debug(f"Generated random recipe: {recipe}")
