@@ -1,17 +1,23 @@
 export interface Recipe {
-  id?: number;
   title: string;
   ingredients: string[];
   steps: string[];
-  nutrition: { calories: number; chaos_factor: number };
+  nutrition: Nutrition;
   equipment: string[];
-  chaos_gear: string;
+  shareText: string;
   ingredients_with_links: { name: string; url: string }[];
   add_all_to_cart: string;
-  shareText: string;
-  rating?: number;
+  chaos_gear: string;
 }
 
 export interface Favorite extends Recipe {
   id: number;
+  rating: number;
+}
+
+export interface Nutrition {
+  calories: number;
+  protein: number;
+  fat: number;
+  chaos_factor: number;
 }

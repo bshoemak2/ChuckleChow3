@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Recipe } from './types';
 
 export const useRecipe = () => {
@@ -7,21 +7,20 @@ export const useRecipe = () => {
   const [time, setTime] = useState('');
   const [style, setStyle] = useState('');
   const [category, setCategory] = useState('');
-  const [language, setLanguage] = useState<'english' | 'spanish'>('english');
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [lastRandom, setLastRandom] = useState(false);
   const [suggestion, setSuggestion] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const fetchRecipe = async (isRandom = false) => {
+  const fetchRecipe = useCallback(async (isRandom = false) => {
     if (!ingredients.trim() && !isRandom) {
       setError('Please enter ingredients or select Random Recipe!');
       setRecipe({
         title: 'Error',
         steps: ['Please enter ingredients or select Random Recipe!'],
         ingredients: [],
-        nutrition: { calories: 0, chaos_factor: 0 },
+        nutrition: { calories: 0, protein: 0, fat: 0, chaos_factor: 0 },
         equipment: [],
         chaos_gear: '',
         ingredients_with_links: [],
@@ -44,7 +43,7 @@ export const useRecipe = () => {
         .map((item) => item.trim())
         .filter(Boolean)
         .slice(0, 10),
-      preferences: { diet, time, style, category, language, isRandom },
+      preferences: { diet, time, style, category, isRandom },
     };
 
     const url = `${process.env.REACT_APP_API_URL || ''}/generate_recipe`;
@@ -63,6 +62,10 @@ export const useRecipe = () => {
       }
 
       const data: Recipe = await response.json();
+      console.log('Fetched recipe (useRecipe):', JSON.stringify(data, null, 2));
+      if (!data || !data.title || data.title === 'Error Recipe') {
+        throw new Error('Invalid recipe received from server');
+      }
       setRecipe(data);
     } catch (err: any) {
       const message = err.message || 'Recipe generation flopped!';
@@ -71,7 +74,7 @@ export const useRecipe = () => {
         title: 'Error',
         steps: [message],
         ingredients: [],
-        nutrition: { calories: 0, chaos_factor: 0 },
+        nutrition: { calories: 0, protein: 0, fat: 0, chaos_factor: 0 },
         equipment: [],
         chaos_gear: '',
         ingredients_with_links: [],
@@ -81,15 +84,7 @@ export const useRecipe = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const toggleLanguage = () => {
-    const newLanguage = language === 'english' ? 'spanish' : 'english';
-    setLanguage(newLanguage);
-    if (ingredients || recipe) {
-      fetchRecipe(lastRandom);
-    }
-  };
+  }, [ingredients, diet, time, style, category]);
 
   const clearInput = () => {
     setIngredients('');
@@ -114,8 +109,6 @@ export const useRecipe = () => {
     setStyle,
     category,
     setCategory,
-    language,
-    setLanguage,
     recipe,
     setRecipe,
     isLoading,
@@ -127,7 +120,6 @@ export const useRecipe = () => {
     error,
     setError,
     fetchRecipe,
-    toggleLanguage,
     clearInput,
   };
 };

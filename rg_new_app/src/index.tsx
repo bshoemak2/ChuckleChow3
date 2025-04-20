@@ -206,7 +206,7 @@ export default function HomeScreen() {
             title: fav.title || 'Unknown Recipe',
             ingredients: fav.ingredients || [],
             steps: fav.steps || [],
-            nutrition: fav.nutrition || { calories: 0, chaos_factor: 0 },
+            nutrition: fav.nutrition || { calories: 0, protein: 0, fat: 0, chaos_factor: 0 },
             equipment: fav.equipment || [],
             shareText: fav.shareText || '',
             ingredients_with_links: fav.ingredients_with_links || [],
@@ -239,7 +239,7 @@ export default function HomeScreen() {
         title: 'Error 🤦‍♂️',
         ingredients: [],
         steps: ["Pick somethin’, ya lazy bum! 😛"],
-        nutrition: { calories: 0, chaos_factor: 0 },
+        nutrition: { calories: 0, protein: 0, fat: 0, chaos_factor: 0 },
         equipment: [],
         shareText: '',
         ingredients_with_links: [],
@@ -257,17 +257,19 @@ export default function HomeScreen() {
     setLastRandom(isRandom);
     try {
       const data = await generateRecipe(selectedIngredients, isRandom);
-      console.log('Fetched recipe:', data);
+      console.log('Fetched recipe:', JSON.stringify(data, null, 2));
+      if (!data || !data.title || data.title === 'Error Recipe') {
+        throw new Error('Invalid recipe received from server');
+      }
       setRecipe(data);
-      setTimeout(() => setRecipe(data), 500); // Simplified for clarity
     } catch (error: any) {
-      console.error('Fetch error:', error.message);
-      setError(error.message);
+      console.error('Fetch error:', error.message, error.stack);
+      setError(`Cookin’ crashed: ${error.message} 🤡`);
       setRecipe({
         title: 'Error 🤦‍♂️',
         ingredients: [],
         steps: [`Cookin’ crashed: ${error.message} 🤡`],
-        nutrition: { calories: 0, chaos_factor: 0 },
+        nutrition: { calories: 0, protein: 0, fat: 0, chaos_factor: 0 },
         equipment: [],
         shareText: '',
         ingredients_with_links: [],
@@ -593,7 +595,7 @@ export default function HomeScreen() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <p style={styles(theme).recipeSection}>Nutrition:</p>
           <p style={styles(theme).recipeItem}>
-            Calories: {recipe.nutrition.calories || 0} (Chaos: {recipe.nutrition.chaos_factor || 0}/10)
+            Calories: {recipe.nutrition.calories || 0} | Protein: {recipe.nutrition.protein || 0}g | Fat: {recipe.nutrition.fat || 0}g (Chaos: {recipe.nutrition.chaos_factor || 0}/10)
           </p>
         </motion.div>
       )}
@@ -891,7 +893,7 @@ export default function HomeScreen() {
               animate={{ opacity: 1 }}
               style={styles(theme).errorContainer}
             >
-              <p style={{ ...styles(theme).error, color: '#FF1493', fontSize: 20 } as CSSProperties}>💥 Dang it! {recipe.steps[0]} 🤦‍♂️</p>
+              <p style={styles(theme).error as CSSProperties}>💥 Dang it! {recipe.steps[0]} 🤦‍♂️</p>
               <motion.button
                 style={{ ...styles(theme).copyButton, backgroundColor: '#FF3D00' }}
                 onClick={() => fetchRecipe(lastRandom)}
